@@ -7,8 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_PACKAGE_PATH: '.'   # リポジトリ直下をデプロイ
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
   NODE_VERSION: '20.x'
+  # ★ ここで GitHub Actions 上のビルドにバックエンドURLを渡す
+  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
 
 jobs:
   build-and-deploy:
@@ -22,9 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # cache は一旦ナシでOK
-          # cache: 'npm'
-          # cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         run: |
@@ -40,6 +39,5 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          # app-name は指定しない。publish profile 側から siteName を読む
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
