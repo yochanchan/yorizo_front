@@ -23,7 +23,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # 🔥 ビルド時に NEXT_PUBLIC_API_BASE_URL を埋め込む
       - name: Inject NEXT_PUBLIC_API_BASE_URL
         run: echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" >> $GITHUB_ENV
 
@@ -38,9 +37,8 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 🔥 Next.js を Azure が動かせる形式へ zip 化
       - name: Prepare artifact
-        run: zip -r release.zip .next public package.json next.config.mjs node_modules
+        run: zip -r release.zip .next public package.json package-lock.json next.config.mjs node_modules
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
