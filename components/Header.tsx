@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -12,37 +12,37 @@ type HeaderProps = {
 
 export function Header({ title, showBackButton }: HeaderProps) {
   const router = useRouter()
+
   return (
-    <header className="px-4 pt-4 pb-2 sticky top-0 z-30 bg-transparent">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-40 border-b border-[var(--yori-outline)]/60 bg-[rgba(255,254,254,0.78)] backdrop-blur-lg">
+      <div className="yori-shell flex items-center justify-between gap-3 py-3">
+        <div className="flex items-center gap-3">
           {showBackButton && (
             <button
               type="button"
               onClick={() => router.back()}
-              className="h-9 w-9 rounded-full bg-white/80 border border-white/60 flex items-center justify-center text-slate-600 shadow-sm"
+              className="h-10 w-10 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] text-[var(--yori-ink)] flex items-center justify-center shadow-sm"
               aria-label="戻る"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-3 group">
             <MascotIcon size="sm" />
             <div className="flex flex-col leading-tight">
-              <span className="text-lg font-bold tracking-tight text-slate-800">Yorizo</span>
-              {title ? (
-                <span className="text-[11px] text-slate-500">{title}</span>
-              ) : (
-                <span className="text-[11px] text-slate-500">経営のモヤモヤを整える</span>
-              )}
+              <span className="text-xs font-semibold text-[var(--yori-ink-soft)]">経営コンシェルジュ</span>
+              <span className="text-xl font-bold tracking-tight text-[var(--yori-ink-strong)] group-hover:opacity-90 transition-opacity">
+                Yorizo
+              </span>
+              {title && <span className="text-[11px] text-[var(--yori-ink-soft)]">{title}</span>}
             </div>
           </Link>
         </div>
         <button
           type="button"
-          className="h-10 w-10 rounded-full bg-white/80 border border-white/60 text-slate-500 flex items-center justify-center shadow-sm"
+          className="h-10 w-10 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] text-[var(--yori-ink-soft)] flex items-center justify-center shadow-sm"
           aria-label="設定"
-          onClick={() => router.push("/settings")}
+          onClick={() => router.push("/company")}
         >
           <Settings className="h-5 w-5" />
         </button>

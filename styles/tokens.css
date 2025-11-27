@@ -1,0 +1,45 @@
+:root {
+  /* Core palette */
+  --yori-canvas: #fffefe;
+  --yori-surface: #ffffff;
+  --yori-surface-muted: #f6fbfb;
+  --yori-surface-strong: #f1f5f9;
+  --yori-ink-strong: #272343;
+  --yori-ink: #2d334a;
+  --yori-ink-soft: #4f5672;
+
+  /* Brand accents */
+  --yori-primary: #ffd803;
+  --yori-primary-ink: #272343;
+  --yori-secondary: #e3f6f5;
+  --yori-tertiary: #bae8e8;
+
+  /* Border + depth */
+  --yori-outline: #d9e3ec;
+  --yori-outline-strong: #c3d0dd;
+  --yori-shadow-soft: 0 18px 50px rgba(39, 35, 67, 0.08);
+  --yori-shadow-card: 0 10px 30px rgba(39, 35, 67, 0.07);
+  --yori-shadow-strong: 0 26px 70px rgba(39, 35, 67, 0.12);
+
+  /* Radii + sizing */
+  --yori-radius-sm: 10px;
+  --yori-radius-md: 14px;
+  --yori-radius-lg: 18px;
+  --yori-radius-xl: 26px;
+  --yori-radius-pill: 999px;
+  --yori-content-max: 1120px;
+  --yori-nav-height: 76px;
+
+  /* Typography */
+  --yori-font-sans: "Noto Sans JP", "Inter", "Manrope", system-ui, -apple-system, sans-serif;
+
+  /* Gradients + decoration */
+  --yori-gradient-hero: radial-gradient(160% 160% at 15% 0%, #e3f6f5 0%, #fffefe 38%, #fffefe 65%, #bae8e8 100%);
+  --yori-gradient-card: linear-gradient(180deg, rgba(227, 246, 245, 0.65) 0%, rgba(255, 254, 254, 0.92) 100%);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --yori-nav-height: 68px;
+  }
+}

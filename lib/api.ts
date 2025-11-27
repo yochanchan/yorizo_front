@@ -1,33 +1,32 @@
 import { API_BASE_URL } from "./config"
 
-type ChatMessagePayload = {
-  role: string
-  content: string
-}
+export type ChatOption = { id: string; label: string; value?: string | null }
 
-type ChatPayload = {
-  messages: ChatMessagePayload[]
-  profile?: {
-    industry?: string
-    employees?: string
-    annual_sales_range?: string
-  }
-  document_ids?: string[]
+export type ChatTurnRequest = {
   conversation_id?: string
   user_id?: string
+  selection?: {
+    type: "choice" | "free_text"
+    id?: string
+    label?: string
+    text?: string
+  }
+  message?: string
+  selected_option_id?: string
+  category?: string
 }
 
-export type ChatResponse = {
+export type ChatTurnResponse = {
   conversation_id: string
-  message: string
-  choices: { id: string; label: string }[]
-  suggested_next_questions?: string[]
-  choice_options?: string[]
-  progress?: number
-  homework_suggestions?: { title: string; detail?: string; category?: string }[]
+  reply: string
+  question: string
+  options: ChatOption[]
+  allow_free_text: boolean
+  step: number
+  done: boolean
 }
 
-export async function postChat(payload: ChatPayload): Promise<ChatResponse | null> {
+export async function chatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
   const res = await fetch(`${API_BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -35,6 +34,28 @@ export async function postChat(payload: ChatPayload): Promise<ChatResponse | nul
     cache: "no-store",
   })
   if (!res.ok) throw new Error(`chat failed: ${res.status}`)
+  return res.json()
+}
+
+export async function guidedChatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/chat/guided`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  })
+  if (!res.ok) {
+    let message = "Yorizoとの通信に失敗しました。時間をおいて再度お試しください。"
+    try {
+      const data = await res.json()
+      if (data?.detail && typeof data.detail === "string") {
+        message = data.detail
+      }
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message)
+  }
   return res.json()
 }
 
@@ -214,17 +235,28 @@ export async function getConversationDetail(conversationId: string): Promise<Con
   return res.json()
 }
 
+export type ReportHomework = {
+  id?: number | null
+  title: string
+  detail?: string | null
+  timeframe?: string | null
+  status?: "pending" | "in_progress" | "done" | null
+}
+
 export type ConversationReport = {
   id: string
   title: string
-  date: string
+  category?: string | null
+  created_at: string
   summary: string[]
-  key_topics: string[]
-  homework: HomeworkTask[]
+  financial_analysis: string[]
+  strengths: string[]
+  weaknesses: string[]
+  homework: ReportHomework[]
 }
 
 export async function getConversationReport(conversationId: string): Promise<ConversationReport> {
-  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/report`, { cache: "no-store" })
+  const res = await fetch(`${API_BASE_URL}/api/report/${conversationId}`, { cache: "no-store" })
   if (!res.ok) throw new Error(`conversation report fetch failed: ${res.status}`)
   return res.json()
 }
@@ -293,11 +325,15 @@ export async function createConsultationBooking(
   return res.json()
 }
 
+export type DocumentType = "financial_statement" | "trial_balance" | "plan" | "other"
+
 export type DocumentUploadResult = {
   document_id: string
   filename: string
   uploaded_at: string
   summary: string
+  storage_path?: string
+  ingested?: boolean
 }
 
 export type DocumentItem = {
@@ -306,12 +342,30 @@ export type DocumentItem = {
   uploaded_at: string
   size_bytes: number
   mime_type?: string | null
+  doc_type?: DocumentType | null
+  period_label?: string | null
+  storage_path?: string
+  ingested?: boolean
 }
 
-export async function uploadDocument(file: File, userId?: string): Promise<DocumentUploadResult> {
+export type UploadDocumentPayload = {
+  file: File
+  doc_type: DocumentType
+  period_label: string
+  user_id?: string
+  company_id?: string
+  conversation_id?: string
+}
+
+export async function uploadDocument(payload: UploadDocumentPayload): Promise<DocumentUploadResult> {
   const form = new FormData()
-  form.append("file", file)
-  if (userId) form.append("user_id", userId)
+  form.append("file", payload.file)
+  form.append("doc_type", payload.doc_type)
+  form.append("period_label", payload.period_label)
+  if (payload.user_id) form.append("user_id", payload.user_id)
+  if (payload.company_id) form.append("company_id", payload.company_id)
+  if (payload.conversation_id) form.append("conversation_id", payload.conversation_id)
+
   const res = await fetch(`${API_BASE_URL}/api/documents/upload`, {
     method: "POST",
     body: form,

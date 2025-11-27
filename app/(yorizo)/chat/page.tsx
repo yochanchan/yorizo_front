@@ -1,264 +1,239 @@
 "use client"
 
 import { ChangeEvent, Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { Camera, FileUp, SendHorizontal, X } from "lucide-react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { MascotIcon } from "@/components/MascotIcon"
+import { ArrowRight, FileUp, SendHorizontal, X } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ChatBubble } from "@/components/ChatBubble"
 import {
-  getConversationDetail,
-  postChat,
+  guidedChatTurn,
   uploadDocument,
+  getConversationDetail,
+  type ChatOption,
+  type ChatTurnResponse,
   type ConversationDetail,
 } from "@/lib/api"
 
-type ChatChoice = {
+type ChatMessage = {
   id: string
-  label: string
+  role: "assistant" | "user"
+  content: string
+  question?: string
+  options?: ChatOption[]
+  allowFreeText?: boolean
+  step?: number
+  done?: boolean
+  payload?: {
+    type?: "choice" | "free_text"
+    choiceId?: string
+  }
 }
 
-type Message =
-  | {
-      id: string
-      role: "assistant" | "system"
-      content: string
-      choices?: ChatChoice[]
-      choiceOptions?: string[]
-    }
-  | {
-      id: string
-      role: "user"
-      content: string
-    }
+type Attachment = { id: string; filename: string }
 
-type Attachment = {
-  id: string
-  filename: string
-}
+const USER_ID = "demo-user"
+const DEFAULT_TOTAL_STEPS = 5
 
-const initialAssistantMessage: Message = {
-  id: "m1",
+const fallbackAssistant: ChatMessage = {
+  id: "intro",
   role: "assistant",
-  content:
-    "こんにちは！\n\nはじめまして、Yorizoだよ。\n今日はどんなことを相談したいのかな？\n売上のこと、資金繰りのこと、どんな悩みでもいっしょに整理できるよ🌱",
-  choices: [
-    { id: "sales", label: "売上のことを相談したい" },
-    { id: "cash", label: "資金繰りの不安を整理したい" },
-    { id: "staff", label: "人手不足・採用について話したい" },
-    { id: "unknown", label: "まだ、悩みがうまく言葉にできない" },
+  content: "",
+  question: "まずは気になっているテーマを教えてください。下のチップを選んでも、自由に入力しても大丈夫です。",
+  options: [
+    { id: "sales", label: "売上が伸びない", value: "売上が伸び悩んでいる" },
+    { id: "cash", label: "資金繰りが不安", value: "資金繰りが不安定" },
+    { id: "staff", label: "人手・採用の悩み", value: "人手不足がある" },
+    { id: "ops", label: "業務がバタバタしている", value: "業務フローを見直したい" },
   ],
+  step: 1,
+  done: false,
 }
 
-function ChatBubble({
-  message,
-  onChoice,
-  onChoiceOption,
-}: {
-  message: Message
-  onChoice: (c: ChatChoice) => void
-  onChoiceOption?: (option: string) => void
-}) {
-  const isUser = message.role === "user"
-  return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      {isUser ? (
-        <div className="max-w-[82%] rounded-3xl px-4 py-3 text-sm leading-relaxed shadow-sm bg-[#13274B] text-white rounded-br-md">
-          {message.content.split("\n").map((line, idx) => (
-            <p key={`${message.id}-${idx}`} className="whitespace-pre-wrap">
-              {line}
-            </p>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <MascotIcon size="sm" />
-            <div className="max-w-[82%] rounded-3xl px-4 py-3 text-sm leading-relaxed shadow-sm bg-white/95 text-slate-800 border border-white/70 rounded-bl-md whitespace-pre-line">
-              {message.content}
-            </div>
-          </div>
-          {message.choices && message.choices.length > 0 && (
-            <div className="flex flex-wrap gap-2 pl-10">
-              {message.choices.map((c) => (
-                <button
-                  key={c.id}
-                  className="rounded-full border border-pink-200 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-pink-50"
-                  onClick={() => onChoice(c)}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {message.choiceOptions && message.choiceOptions.length > 0 && (
-            <div className="space-y-1 pl-10">
-              <p className="text-[11px] text-slate-500">近いものを選んでね</p>
-              <div className="flex flex-wrap gap-2">
-                {message.choiceOptions.map((opt) => (
-                  <button
-                    key={`${message.id}-${opt}`}
-                    className="rounded-full border border-pink-200 bg-gradient-to-r from-white to-pink-50 px-3 py-1 text-xs text-gray-700 hover:bg-pink-100"
-                    onClick={() => onChoiceOption?.(opt)}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
+function normalizeUserContent(content: string) {
+  if (content.startsWith("[choice_id:")) {
+    const idx = content.indexOf("]")
+    if (idx !== -1) return content.slice(idx + 1).trim()
+  }
+  return content
 }
 
-export default function ChatPage() {
-  return (
-    <Suspense fallback={<div className="p-4">Loading chat...</div>}>
-      <ChatPageContent />
-    </Suspense>
-  )
+function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
+  const items: ChatMessage[] = []
+  detail.messages.forEach((m) => {
+    if (m.role === "assistant") {
+      try {
+        const parsed = JSON.parse(m.content)
+        items.push({
+          id: m.id,
+          role: "assistant",
+          content: parsed.reply ?? parsed.message ?? parsed.content ?? "",
+          question: parsed.question ?? "",
+          options: parsed.options ?? [],
+          allowFreeText: parsed.allow_free_text ?? true,
+          step: parsed.step,
+          done: parsed.done,
+        })
+        return
+      } catch {
+        // fallback below
+      }
+    }
+    items.push({
+      id: m.id,
+      role: m.role as "assistant" | "user",
+      content: m.role === "user" ? normalizeUserContent(m.content) : m.content,
+    })
+  })
+  return items
 }
 
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialConversationId = searchParams.get("conversationId") || null
-  const [messages, setMessages] = useState<Message[]>([initialAssistantMessage])
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isBootstrapLoading, setIsBootstrapLoading] = useState(!!initialConversationId)
-  const [error, setError] = useState<string | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [isUploading, setIsUploading] = useState(false)
+  const topic = searchParams.get("topic") || undefined
+  const reset = searchParams.get("reset") === "true"
+  const initialConversationId = reset ? null : searchParams.get("conversationId")
+
+  const [messages, setMessages] = useState<ChatMessage[]>([fallbackAssistant])
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId)
-  const [progress, setProgress] = useState<number | null>(null)
-  const [latestReportReady, setLatestReportReady] = useState(false)
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [bootstrapLoading, setBootstrapLoading] = useState(!!initialConversationId && !reset)
+  const [error, setError] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+
   const bottomRef = useRef<HTMLDivElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
+  }, [messages, loading])
 
   useEffect(() => {
-    const loadConversation = async () => {
-      if (!initialConversationId) return
+    const load = async () => {
+      if (!initialConversationId || reset) {
+        setBootstrapLoading(false)
+        setMessages([fallbackAssistant])
+        setConversationId(null)
+        return
+      }
       try {
         const data: ConversationDetail = await getConversationDetail(initialConversationId)
-        const mapped: Message[] = data.messages.map((m) => ({
-          id: m.id,
-          role: m.role as "assistant" | "user" | "system",
-          content: m.content,
-        }))
-        setMessages(mapped.length > 0 ? mapped : [initialAssistantMessage])
+        const hydrated = hydrateConversation(data)
+        setMessages(hydrated.length > 0 ? hydrated : [fallbackAssistant])
+        setConversationId(initialConversationId)
       } catch (err) {
         console.error(err)
-        setError("過去の会話を読み込めませんでした。もう一度お試しください。")
-        setMessages([initialAssistantMessage])
+        setError("過去の会話を読み込めませんでした。時間をおいて再度お試しください。")
+        setMessages([fallbackAssistant])
+        setConversationId(null)
       } finally {
-        setIsBootstrapLoading(false)
+        setBootstrapLoading(false)
       }
     }
-    loadConversation()
-  }, [initialConversationId])
+    load()
+  }, [initialConversationId, reset])
 
-  const canSend = useMemo(() => input.trim().length > 0 && !isLoading, [input, isLoading])
+  const lastAssistant = useMemo(
+    () => [...messages].reverse().find((m) => m.role === "assistant"),
+    [messages],
+  )
+  const currentStep =
+    (lastAssistant?.step ?? messages.filter((m) => m.role === "assistant").length) || 1
+  const totalSteps = DEFAULT_TOTAL_STEPS
+  const allowFreeText = lastAssistant?.done ? false : (lastAssistant?.allowFreeText ?? true)
+  const canSend = allowFreeText && input.trim().length > 0 && !loading
+  const done = lastAssistant?.done ?? false
 
-  const sendMessagesToBackend = async (nextMessages: Message[]) => {
-    setIsLoading(true)
+  const appendAssistant = (res: ChatTurnResponse) => {
+    const assistantMessage: ChatMessage = {
+      id: `assistant-${crypto.randomUUID()}`,
+      role: "assistant",
+      content: res.reply,
+      question: res.question,
+      options: res.options ?? [],
+      allowFreeText: res.allow_free_text,
+      step: res.step,
+      done: res.done,
+    }
+    setMessages((prev) => [...prev, assistantMessage])
+    setConversationId(res.conversation_id)
+  }
+
+  const sendToBackend = async (payload: {
+    message?: string
+    selection?: { type: "choice" | "free_text"; id?: string; label?: string; text?: string }
+  }) => {
+    setLoading(true)
     setError(null)
     try {
-      const response = await postChat({
-        messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
-        profile: { industry: "未設定", employees: "未設定", annual_sales_range: "未設定" },
-        document_ids: attachments.map((a) => a.id),
-        conversation_id: conversationId || undefined,
-        user_id: "demo-user",
+      const res = await guidedChatTurn({
+        conversation_id: conversationId ?? undefined,
+        user_id: USER_ID,
+        message: payload.message,
+        selection: payload.selection,
+        selected_option_id: payload.selection?.id,
+        category: topic,
       })
-      if (response?.message) {
-        const assistantMessage: Message = {
-          id: `assistant-${crypto.randomUUID()}`,
-          role: "assistant",
-          content: response.message,
-          choices: response.choices ?? [],
-          choiceOptions: response.choice_options ?? [],
-        }
-        setProgress(response.progress ?? null)
-        if ((response.progress ?? 0) >= 100) {
-          setLatestReportReady(true)
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-        if (!conversationId) {
-          setConversationId(response.conversation_id)
-          const url = new URL(window.location.href)
-          url.searchParams.set("conversationId", response.conversation_id)
-          router.replace(url.toString())
-        }
-      } else {
-        setError("ごめんなさい、うまく返答できませんでした。もう一度ためしてね。")
-      }
+      appendAssistant(res)
+      const url = new URL(window.location.href)
+      url.searchParams.set("conversationId", res.conversation_id)
+      url.searchParams.delete("reset")
+      if (topic) url.searchParams.set("topic", topic)
+      router.replace(url.toString())
     } catch (err) {
       console.error(err)
-      setError("ごめんなさい、うまく返答できませんでした。もう一度ためしてね。")
+      setError(err instanceof Error ? err.message : "Yorizoとの通信に失敗しました。時間をおいて再度お試しください。")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleChoiceClick = async (choice: ChatChoice) => {
-    if (isLoading) return
-    const userMessage: Message = {
-      id: `user-${crypto.randomUUID()}`,
-      role: "user",
-      content: choice.label,
-    }
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
-    await sendMessagesToBackend(nextMessages)
+  const addUserMessage = (text: string, payload?: ChatMessage["payload"]) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: `user-${crypto.randomUUID()}`, role: "user", content: text, payload },
+    ])
   }
 
-  const handleChoiceOptionClick = async (option: string) => {
-    if (isLoading) return
-    const userMessage: Message = {
-      id: `user-${crypto.randomUUID()}`,
-      role: "user",
-      content: option,
-    }
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
-    await sendMessagesToBackend(nextMessages)
+  const handleOptionClick = async (option: ChatOption) => {
+    if (loading) return
+    addUserMessage(option.label, { type: "choice", choiceId: option.id })
+    setInput("")
+    await sendToBackend({
+      message: option.label,
+      selection: { type: "choice", id: option.id, label: option.label },
+    })
   }
 
   const handleSend = async () => {
     if (!canSend) return
-    const userMessage: Message = {
-      id: `user-${crypto.randomUUID()}`,
-      role: "user",
-      content: input.trim(),
-    }
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
+    const text = input.trim()
+    addUserMessage(text, { type: "free_text" })
     setInput("")
-    await sendMessagesToBackend(nextMessages)
+    await sendToBackend({ message: text, selection: { type: "free_text", text } })
   }
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    setIsUploading(true)
+    setUploading(true)
     setUploadError(null)
     try {
-      const result = await uploadDocument(file, "demo-user")
+      const result = await uploadDocument({
+        file,
+        doc_type: "other",
+        period_label: "latest",
+        user_id: USER_ID,
+        conversation_id: conversationId ?? undefined,
+      })
       setAttachments((prev) => [...prev, { id: result.document_id, filename: result.filename }])
     } catch (err) {
       console.error(err)
-      setUploadError("ファイルをアップロードできませんでした。10MB以下、PDF/画像/CSV/XLSXに対応しています。")
+      setUploadError("ファイルをアップロードできませんでした。10MB以下のPDF/画像/CSV/XLSXに対応しています。")
     } finally {
-      setIsUploading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+      setUploading(false)
+      if (event.target) event.target.value = ""
     }
   }
 
@@ -266,99 +241,120 @@ function ChatPageContent() {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }
 
-  return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pt-2 pb-24 space-y-3">
-      <div className="flex items-center gap-3">
-        <MascotIcon size="sm" />
-      </div>
-      <div className="flex items-center gap-2 text-[11px] text-slate-600">
-        <span className="inline-flex items-center justify-center rounded-full bg-white/90 border border-slate-200 px-2 py-1 font-semibold text-[#13274B]">
-          中小企業診断士 Yorizo が相談に乗るよ🌱
-        </span>
-        <button
-          type="button"
-          className="text-[11px] underline text-slate-500"
-          onClick={() => router.push("/memory")}
+  const renderMessage = (msg: ChatMessage) => {
+    const isAssistant = msg.role === "assistant"
+    const questionText = (msg.question || msg.content || "ご状況を教えてください。").trim()
+    const subText =
+      msg.question && msg.content && msg.content.trim() !== msg.question.trim()
+        ? msg.content
+        : ""
+
+    return (
+      <div key={msg.id} className="space-y-3">
+        <ChatBubble
+          role={msg.role}
+          bubbleClassName={
+            isAssistant
+              ? "bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 md:px-5 md:py-4"
+              : "text-[var(--yori-primary-ink)] bg-[var(--yori-primary)] rounded-3xl px-4 py-2 ml-auto"
+          }
         >
-          会社情報を登録
-        </button>
+          {isAssistant ? (
+            <div className="space-y-2">
+              <p className="text-[11px] text-slate-500">Yorizoからの質問</p>
+              <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-line">
+                {questionText}
+              </p>
+              {subText ? (
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line line-clamp-3">
+                  {subText}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <span className="leading-relaxed whitespace-pre-line">{msg.content}</span>
+          )}
+        </ChatBubble>
+        {isAssistant && msg.options && msg.options.length > 0 && (
+          <div className="flex flex-wrap gap-2 pl-2">
+            {msg.options.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-sky-300 hover:bg-sky-50 transition disabled:opacity-60"
+                onClick={() => handleOptionClick(opt)}
+                disabled={loading || done || lastAssistant?.id !== msg.id}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 pb-20 px-4 md:px-6">
+      <div className="flex items-center justify-between text-xs text-[var(--yori-ink-soft)] py-2">
+        <span className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-white px-3 py-1 font-semibold text-[var(--yori-ink-strong)] shadow-sm">
+          ヒアリング
+        </span>
+        <span className="font-semibold text-[var(--yori-ink-strong)]">
+          ステップ {Math.min(currentStep, totalSteps)} / {totalSteps}
+        </span>
       </div>
 
-      {progress !== null && progress > 0 && (
-        <div className="space-y-1 px-1">
-          <div className="flex items-center justify-between text-[11px] text-slate-600">
-            <span>診断進捗</span>
-            <span className="font-semibold text-slate-800">{progress}%</span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-white/70 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-pink-400 via-rose-400 to-sky-300 transition-[width] duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {isBootstrapLoading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-600 py-4">
-          <div className="h-4 w-4 rounded-full border-2 border-slate-300 border-t-[#13274B] animate-spin" />
-          <span>過去の会話を読み込み中…</span>
+      {bootstrapLoading ? (
+        <div className="flex items-center gap-2 text-sm text-[var(--yori-ink-soft)] py-6">
+          <div className="h-4 w-4 rounded-full border-2 border-[var(--yori-outline)] border-t-[var(--yori-ink-strong)] animate-spin" />
+          <span>会話を読み込み中...</span>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-3 pb-2">
-          {messages.map((msg) => (
-            <ChatBubble
-              key={msg.id}
-              message={msg}
-              onChoice={handleChoiceClick}
-              onChoiceOption={handleChoiceOptionClick}
-            />
-          ))}
-          {isLoading && (
+        <div className="flex-1 min-h-[320px] space-y-4 overflow-y-auto pr-1">
+          {messages.map((m) => renderMessage(m))}
+          {loading && (
             <div className="flex justify-start">
-              <div className="max-w-[82%] rounded-3xl px-4 py-3 text-sm leading-relaxed shadow-sm bg-white/90 text-slate-600 border border-white/70">
-                Yorizoが考え中…
-              </div>
+              <span className="rounded-full border border-slate-200 bg-white px-4 py-1 text-xs text-[var(--yori-ink-strong)] shadow-sm">
+                Yorizoが考えています...
+              </span>
             </div>
           )}
+          {error && <p className="text-xs text-rose-600">{error}</p>}
+          {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
           <div ref={bottomRef} />
         </div>
       )}
 
-      {(error || uploadError) && (
-        <div className="space-y-1">
-          {error && <p className="text-xs text-rose-600">{error}</p>}
-          {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
-        </div>
-      )}
-
-      {latestReportReady && conversationId && (
-        <div className="bg-white/95 border border-pink-100 rounded-3xl shadow-sm p-4 space-y-3">
-          <p className="text-sm font-semibold text-slate-800">今回の診断をもとに、レポートをまとめたよ</p>
+      {done && conversationId && (
+        <div className="yori-card p-4 space-y-3">
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">診断内容がまとまりました。</p>
           <button
             type="button"
             onClick={() => router.push(`/report/${conversationId}`)}
-            className="w-full rounded-full bg-[#13274B] text-white py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform"
+            className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
           >
             診断レポートを見る
+            <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {attachments.length > 0 && (
-        <div className="w-full max-w-md mx-auto px-1 space-y-1">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">添付済み</p>
           <div className="flex flex-wrap gap-2">
             {attachments.map((file) => (
               <span
                 key={file.id}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs border border-slate-200 shadow-sm"
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--yori-secondary)] px-3 py-1 text-xs border border-[var(--yori-outline)] shadow-sm"
               >
-                <FileUp className="h-4 w-4 text-pink-500" />
-                <span className="max-w-[160px] truncate">{file.filename}</span>
+                <FileUp className="h-4 w-4 text-[var(--yori-ink-soft)]" />
+                <span className="max-w-[180px] truncate">{file.filename}</span>
                 <button
                   type="button"
                   onClick={() => removeAttachment(file.id)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-[var(--yori-ink-soft)] hover:text-[var(--yori-ink-strong)]"
                   aria-label="添付を削除"
                 >
                   <X className="h-4 w-4" />
@@ -369,47 +365,62 @@ function ChatPageContent() {
         </div>
       )}
 
-      <div className="w-full max-w-md mx-auto px-1 pb-2">
-        <div className="flex items-center rounded-full bg-white/95 shadow-md border border-pink-200 px-3 py-2 gap-2">
-          <button
-            type="button"
-            className="h-9 w-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-500"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Camera className="h-5 w-5" />
-          </button>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="メッセージを入力..."
-            className="flex-1 bg-transparent text-sm px-2 outline-none text-slate-800 placeholder:text-slate-400"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!canSend}
-            className={`h-9 w-9 rounded-full flex items-center justify-center text-white ${
-              canSend ? "bg-[#13274B]" : "bg-slate-300 cursor-not-allowed"
-            }`}
-            aria-label="送信"
-          >
-            <SendHorizontal className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex items-center justify-between px-2 pt-2 text-[11px] text-slate-500">
-          <div className="flex items-center gap-2">
-            <FileUp className="h-3.5 w-3.5" />
-            <span>{isUploading ? "アップロード中..." : "決算書などを添付できるよ"}</span>
+      <div className="sticky bottom-[calc(var(--yori-nav-height)+12px)] w-full">
+        <div className="yori-card p-3 md:p-4 space-y-2 shadow-[0_18px_46px_rgba(39,35,67,0.18)]">
+          <div className="flex items-end gap-3">
+            <button
+              type="button"
+              className="h-11 w-11 rounded-2xl border border-[var(--yori-outline)] bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]"
+              onClick={() => document.getElementById("chat-file-input")?.click()}
+              aria-label="資料を添付"
+            >
+              <FileUp className="h-5 w-5" />
+            </button>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="今の状況やモヤモヤしていることを自由に書いてください"
+              rows={2}
+              className="flex-1 rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
+              disabled={!allowFreeText}
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!canSend}
+              className={`h-11 w-11 rounded-full flex items-center justify-center text-white transition-transform ${
+                canSend
+                  ? "bg-[var(--yori-primary)] text-[var(--yori-primary-ink)] shadow-[0_12px_28px_rgba(255,216,3,0.45)] hover:scale-[1.02]"
+                  : "bg-slate-300 cursor-not-allowed"
+              }`}
+              aria-label="送信"
+            >
+              <SendHorizontal className="h-5 w-5" />
+            </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          <div className="flex items-center justify-between px-1 text-[11px] text-[var(--yori-ink-soft)]">
+            <div className="flex items-center gap-2">
+              <FileUp className="h-3.5 w-3.5" />
+              <span>{uploading ? "アップロード中..." : "決算書やメモなどの資料も一緒に添付できます"}</span>
+            </div>
+            <input
+              id="chat-file-input"
+              type="file"
+              accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-4">チャットを読み込み中...</div>}>
+      <ChatPageContent />
+    </Suspense>
   )
 }

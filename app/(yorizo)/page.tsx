@@ -1,65 +1,112 @@
-﻿"use client"
+"use client"
 
+import Image from "next/image"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Heart } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { MascotIcon } from "@/components/MascotIcon"
+import { getConversations, type ConversationSummary } from "@/lib/api"
+
+const USER_ID = "demo-user"
 
 export default function HomePage() {
   const router = useRouter()
+  const [latestConversation, setLatestConversation] = useState<ConversationSummary | null>(null)
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const data = await getConversations(USER_ID, 1, 0)
+        setLatestConversation(data?.[0] ?? null)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchLatest()
+  }, [])
+
+  const handleStart = () => {
+    router.push("/chat?reset=true")
+  }
+
+  const handleMemory = () => router.push("/memory")
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 space-y-6">
-      <main className="space-y-8">
-        <section className="space-y-4 pt-2">
-          <div className="flex justify-center">
-            <div className="rounded-3xl bg-white/95 px-4 py-3 shadow-sm text-slate-800 text-sm leading-relaxed max-w-full">
-              今日も一日お疲れさま！Yorizoだよ。モヤモヤしていること、どんなことでも気軽に話してね🌱
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <MascotIcon size="lg" />
-          </div>
-
+    <div className="flex flex-col gap-8 md:gap-10 py-4 pb-24">
+      <div className="yori-card-muted p-6 space-y-4 text-center">
+        <div className="flex justify-center">
+          <MascotIcon size="lg" />
+        </div>
+        <div className="space-y-2">
+          <p className="text-lg md:text-xl font-bold text-[var(--yori-ink-strong)]">
+            経営のモヤモヤを、Yorizoと一緒に整理しよう。
+          </p>
+          <p className="text-sm text-[var(--yori-ink)]">
+            いくつかの簡単な質問に答えるだけで、今の状態と「次に何をすればいいか」を3分で整理します。
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => router.push("/chat")}
-            className="w-full rounded-full bg-[#13274B] text-white py-4 text-base font-semibold shadow-md active:scale-98 transition-transform"
+            onClick={handleStart}
+            className="btn-primary w-full py-4 text-base font-semibold inline-flex items-center justify-center gap-2"
           >
             Yorizoとチャットで話す
+            <ArrowRight className="h-5 w-5" />
           </button>
-
           <button
             type="button"
-            onClick={() => router.push("/memory")}
-            className="w-full text-center text-sm font-semibold text-slate-700 underline underline-offset-4"
+            onClick={handleMemory}
+            className="w-full text-center text-sm font-semibold text-[var(--yori-ink-strong)] underline underline-offset-4"
           >
-            Yorizoの記憶を見る ＞
+            Yorizoの記憶を見る
           </button>
-        </section>
+        </div>
+      </div>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">機能</h2>
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm px-5 py-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 via-pink-400 to-sky-300 text-white">
-                <Heart className="h-4 w-4 fill-white" />
-              </span>
-              <p className="text-base font-semibold text-slate-800">気になる経営のモヤモヤ かんたんチェック</p>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-[var(--yori-ink-soft)]">機能</h2>
+        <div className="yori-card p-5 flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+          <div className="flex items-start gap-3 flex-1">
+            <MascotIcon size="sm" />
+            <div className="space-y-1">
+              <p className="text-base font-semibold text-[var(--yori-ink-strong)]">経営のモヤモヤ かんたんチェック</p>
+              <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
+                短いガイド付きチャットで、今の状態をざっくり整理し、次の一歩を提案します。
+              </p>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              簡単な質問に答えるだけで、売上・資金繰り・人材などのモヤモヤを整理できるよ。
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/wizard")}
-              className="w-full rounded-full bg-[#13274B] text-white py-3 font-semibold shadow-sm active:scale-98 transition-transform"
-            >
-              気になることをチェック
-            </button>
           </div>
-        </section>
-      </main>
+          <button
+            type="button"
+            onClick={() => router.push("/wizard")}
+            className="btn-secondary w-full md:w-auto px-5 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
+          >
+            かんたんチェックをはじめる
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-2 mb-10">
+        <div className="flex items-center justify-center gap-6">
+            <Image
+            src="/logos/meti.png"
+            alt="経済産業省"
+            width={220}
+            height={48}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+          <Image
+            src="/logos/chukicho.png"
+            alt="中小企業庁"
+            width={180}
+            height={48}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+
+        </div>
+      </section>
     </div>
   )
 }

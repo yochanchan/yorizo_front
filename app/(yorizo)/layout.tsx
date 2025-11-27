@@ -4,9 +4,11 @@ import { BottomNav } from "@/components/BottomNav"
 
 export default function YorizoLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-pink-50 via-purple-50 to-sky-50">
+    <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 flex flex-col pb-24 px-0">{children}</main>
+      <main className="flex-1 flex flex-col">
+        <div className="yori-shell w-full pb-[calc(var(--yori-nav-height)+32px)] pt-3 md:pt-6">{children}</div>
+      </main>
       <BottomNav />
     </div>
   )

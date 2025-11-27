@@ -1,75 +1,29 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Heart, RefreshCcw, ChevronRight, History, Save, Loader2 } from "lucide-react"
+import { ChevronRight, Loader2, RefreshCcw, Sprout, Folder } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { MascotIcon } from "@/components/MascotIcon"
 import {
-  getCompanyProfile,
   getConversations,
-  saveCompanyProfile,
-  type CompanyProfile,
-  type CompanyProfilePayload,
+  listDocuments,
+  listHomework,
   type ConversationSummary,
+  type HomeworkTask,
 } from "@/lib/api"
-
-const statusCards = [
-  { label: "Yorizo信頼度", value: "Lv.5", accent: "text-pink-500" },
-  { label: "相談回数", value: "3", accent: "text-slate-800" },
-  { label: "保存メモ数", value: "2", accent: "text-slate-800" },
-]
-
-const memoItems = [
-  "原材料費の高騰で利益率が下がっている",
-  "人手不足で現場に張り付きになっている",
-]
-
-const industryOptions = ["飲食", "小売", "サービス", "製造", "IT/DX", "その他"]
-const employeesOptions = ["1-4", "5-9", "10-19", "20-49", "50+"]
-const salesOptions = ["~1000", "1000-5000", "5000-1億", "1億以上"]
-const prefectureOptions = ["未選択", "北海道", "東京都", "大阪府", "福岡県", "その他"]
+import { MascotIcon } from "@/components/MascotIcon"
+import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
+import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
 
 const USER_ID = "demo-user"
 
 export default function MemoryPage() {
   const router = useRouter()
-  const [nickname, setNickname] = useState("りょうさん")
-  const [profile, setProfile] = useState<CompanyProfilePayload>({
-    company_name: "",
-    industry: "",
-    employees_range: "",
-    annual_sales_range: "",
-    location_prefecture: "",
-    years_in_business: undefined,
-  })
+  const { data: profile, isLoading: loadingProfile, refetch: refetchProfile } = useCompanyProfile(USER_ID)
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
-  const [loadingProfile, setLoadingProfile] = useState(true)
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [profileMessage, setProfileMessage] = useState<string | null>(null)
+  const [pendingHomework, setPendingHomework] = useState<HomeworkTask[]>([])
+  const [documentsCount, setDocumentsCount] = useState<number>(0)
   const [loadingConversations, setLoadingConversations] = useState(true)
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const data = await getCompanyProfile(USER_ID)
-        if (data) {
-          setProfile({
-            company_name: data.company_name ?? "",
-            industry: data.industry ?? "",
-            employees_range: data.employees_range ?? "",
-            annual_sales_range: data.annual_sales_range ?? "",
-            location_prefecture: data.location_prefecture ?? "",
-            years_in_business: data.years_in_business ?? undefined,
-          })
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoadingProfile(false)
-      }
-    }
-    fetchProfile()
-  }, [])
+  const [loadingDocs, setLoadingDocs] = useState(true)
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -85,268 +39,152 @@ export default function MemoryPage() {
     fetchConversations()
   }, [])
 
-  const handleProfileSave = async () => {
-    setSavingProfile(true)
-    setProfileMessage(null)
-    try {
-      await saveCompanyProfile(USER_ID, profile)
-      setProfileMessage("会社情報を保存しました")
-    } catch (err) {
-      console.error(err)
-      setProfileMessage("保存に失敗しました。もう一度お試しください。")
-    } finally {
-      setSavingProfile(false)
+  useEffect(() => {
+    const fetchHomework = async () => {
+      try {
+        const tasks = await listHomework(USER_ID, "pending")
+        setPendingHomework(tasks)
+      } catch (err) {
+        console.error(err)
+      }
     }
-  }
+    fetchHomework()
+  }, [])
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const items = await listDocuments(USER_ID)
+        setDocumentsCount(items.length)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoadingDocs(false)
+      }
+    }
+    fetchDocs()
+  }, [])
 
   const formattedConversations = useMemo(() => {
-    return conversations.map((c) => ({
-      ...c,
-      dateLabel: c.date.replace(/-/g, "/"),
-    }))
+    return conversations.map((c) => {
+      const dateLabel = c.date ? c.date.replace(/-/g, "/") : ""
+      return { ...c, dateLabel }
+    })
   }, [conversations])
 
+  const latestConversation = formattedConversations[0]
+
+  const stats = [
+    { label: "相談回数", value: `${conversations.length}件` },
+    { label: "未完了の宿題", value: `${pendingHomework.length}件` },
+    { label: "保存資料", value: loadingDocs ? "読み込み中" : `${documentsCount}件` },
+  ]
+
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 space-y-6 pt-2">
-      <section className="space-y-4">
-        <div className="flex justify-center">
+    <div className="flex flex-col gap-5">
+      <section className="yori-card-muted p-5 md:p-6 space-y-4">
+        <div className="flex items-start gap-3">
           <MascotIcon size="lg" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizoの記憶</p>
+            <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
+              これまでの相談内容や宿題、会社の資料をあとから落ち着いて見返せます。
+            </p>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {statusCards.map((card) => (
-            <div
-              key={card.label}
-              className="bg-white/90 rounded-2xl shadow-sm border border-white/60 px-3 py-2 text-center"
-            >
-              <p className="text-[11px] text-slate-600">{card.label}</p>
-              <p className={`text-lg font-bold ${card.accent}`}>{card.value}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mx-auto w-full rounded-full bg-white/95 shadow-sm border border-white/60 px-5 py-3 text-sm text-center text-slate-800">
-          Yorizoの記憶、いっしょに育てていこう 🌱
-        </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => router.push("/chat")}
-            className="flex-1 rounded-full bg-[#13274B] text-white py-4 text-sm font-semibold shadow-md active:scale-98 transition-transform"
+            className="btn-primary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
           >
-            Yorizoとチャットで話す
+            Yorizoと話す
+            <ChevronRight className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => router.push("/memory/history")}
-            className="flex items-center justify-center gap-2 rounded-full bg-white/90 border border-slate-200 text-[#13274B] px-4 text-xs font-semibold shadow-sm active:scale-98 transition-transform"
+            onClick={() => router.push("/homework")}
+            className="btn-secondary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
           >
-            <History className="h-4 w-4" />
-            履歴
+            宿題を確認
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/homework")}
-          className="w-full rounded-full bg-white/95 border border-pink-200 text-[#13274B] py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform"
-        >
-          宿題を確認する
-        </button>
       </section>
 
-      <section className="bg-white/95 rounded-3xl shadow-sm border border-white/80 p-4 space-y-4">
-        <div className="flex items-center justify-center gap-6 text-sm font-semibold">
-          <div className="pb-2 border-b-2 border-[#13274B] text-[#13274B]">相談の記録</div>
-          <div className="pb-2 text-slate-400">メモの記録</div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 via-pink-400 to-sky-300 text-white">
-                <Heart className="h-3 w-3 fill-white" />
-              </span>
-              <p className="text-sm font-semibold text-slate-800">今回の相談</p>
-            </div>
-            <button
-              type="button"
-              className="text-xs font-semibold text-[#13274B] flex items-center gap-1"
-              onClick={() => router.push("/memory/history")}
-            >
-              履歴を見る <ChevronRight className="h-4 w-4" />
-            </button>
+      <section className="grid md:grid-cols-3 gap-3">
+        {stats.map((card) => (
+          <div key={card.label} className="yori-card p-4 text-center space-y-1">
+            <p className="text-[11px] text-[var(--yori-ink-soft)]">{card.label}</p>
+            <p className="text-xl font-bold text-[var(--yori-ink-strong)]">{card.value}</p>
           </div>
-
-          <div className="rounded-2xl border border-pink-200 bg-white px-4 py-3 space-y-2">
-            <p className="text-sm font-semibold text-slate-800">最近気になっていること</p>
-            <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
-              {memoItems.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <div className="flex justify-between text-[11px] text-slate-500 pt-1">
-              <span>作成日:2025/11/17</span>
-              <span className="font-semibold text-slate-600">相談メモ</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center gap-2">
-            <MascotIcon size="sm" />
-            <p className="text-sm text-slate-800">Yorizoはあなたのことをどう呼べばいい？</p>
-          </div>
-          <label className="text-xs font-semibold text-slate-700">あなたの呼び方</label>
-          <input
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="あなたの呼び方を入力（2文字以上）"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
-          />
-        </div>
+        ))}
       </section>
 
-      <section className="bg-white/95 rounded-3xl shadow-sm border border-white/80 p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-800">あなたの会社の情報</h3>
-        <p className="text-xs text-slate-600">
-          この情報をもとに、Yorizoがよりあなたの会社に合ったアドバイスをするよ 🌱
-        </p>
-        {loadingProfile ? (
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+      <CompanyInfoSummaryCard profile={profile} loading={loadingProfile} onEdit={() => router.push("/company")} />
+
+      <section className="yori-card p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sprout className="h-5 w-5 text-[var(--yori-ink-strong)]" />
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">最新の診断</p>
+        </div>
+        {loadingConversations && (
+          <div className="flex items-center gap-2 text-xs text-[var(--yori-ink-soft)]">
             <Loader2 className="h-4 w-4 animate-spin" />
             読み込み中…
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">会社名</label>
-              <input
-                value={profile.company_name ?? ""}
-                onChange={(e) => setProfile((prev) => ({ ...prev, company_name: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
-                placeholder="株式会社Yorizo食堂"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">業種</label>
-              <select
-                value={profile.industry ?? ""}
-                onChange={(e) => setProfile((prev) => ({ ...prev, industry: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"
+        )}
+        {!loadingConversations && !latestConversation && (
+          <p className="text-sm text-[var(--yori-ink-soft)]">まだ診断はありません。</p>
+        )}
+        {latestConversation && (
+          <div className="yori-card bg-[var(--yori-surface-muted)] p-4 space-y-2">
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{latestConversation.title}</p>
+            <p className="text-xs text-[var(--yori-ink-soft)]">{latestConversation.dateLabel}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push(`/report/${latestConversation.id}`)}
+                className="btn-secondary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
               >
-                <option value="">選択してください</option>
-                {industryOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+                レポートを見る
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/chat?conversationId=${latestConversation.id}`)}
+                className="btn-ghost px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
+              >
+                チャットを開く
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">従業員数</label>
-                <select
-                  value={profile.employees_range ?? ""}
-                  onChange={(e) => setProfile((prev) => ({ ...prev, employees_range: e.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"
-                >
-                  <option value="">選択</option>
-                  {employeesOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">年商レンジ</label>
-                <select
-                  value={profile.annual_sales_range ?? ""}
-                  onChange={(e) => setProfile((prev) => ({ ...prev, annual_sales_range: e.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"
-                >
-                  <option value="">選択</option>
-                  {salesOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">所在地</label>
-                <select
-                  value={profile.location_prefecture ?? ""}
-                  onChange={(e) => setProfile((prev) => ({ ...prev, location_prefecture: e.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm"
-                >
-                  {prefectureOptions.map((opt) => (
-                    <option key={opt} value={opt === "未選択" ? "" : opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">創業年数</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={profile.years_in_business ?? ""}
-                  onChange={(e) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      years_in_business: e.target.value ? Number(e.target.value) : undefined,
-                    }))
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
-                  placeholder="5"
-                />
-              </div>
-            </div>
-            {profileMessage && <p className="text-[11px] text-slate-600">{profileMessage}</p>}
-            <button
-              type="button"
-              onClick={handleProfileSave}
-              disabled={savingProfile}
-              className="w-full rounded-full bg-[#13274B] text-white py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform flex items-center justify-center gap-2 disabled:bg-slate-300"
-            >
-              {savingProfile && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Save className="h-4 w-4" />
-              会社情報を保存する
-            </button>
           </div>
         )}
       </section>
 
-      <section className="space-y-3">
+      <section className="yori-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-slate-800">会話から覚えていること 🌱</p>
+          <Folder className="h-5 w-5 text-[var(--yori-ink-strong)]" />
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">会社の資料</p>
         </div>
-        <div className="bg-white/95 rounded-3xl shadow-sm border border-white/80 p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <MascotIcon size="sm" />
-            <p className="text-sm text-slate-800 leading-relaxed">
-              これまでの会話をもとに、あなたのことを覚えたよ！{nickname}のためにメモを更新したよ📒
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push("/chat")}
-            className="w-full rounded-full border border-slate-300 text-slate-700 py-3 text-sm font-semibold active:scale-98 transition-transform"
-          >
-            Yorizoと話す
-          </button>
-        </div>
+        <p className="text-sm text-[var(--yori-ink)]">保存済み: {loadingDocs ? "読み込み中" : `${documentsCount}件`}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/documents")}
+          className="btn-ghost px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
+        >
+          資料を管理する
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </section>
 
-      <section className="space-y-3">
+      <section className="yori-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-slate-800">これまで相談したこと 🌱</p>
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">これまで相談したこと（最新5件）</p>
         </div>
-        <div className="bg-white/95 rounded-3xl shadow-sm border border-white/80 p-3 space-y-1">
+        <div className="space-y-1">
           {loadingConversations && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 px-2 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--yori-ink-soft)] px-2 py-3">
               <Loader2 className="h-4 w-4 animate-spin" />
               読み込み中…
             </div>
@@ -357,34 +195,46 @@ export default function MemoryPage() {
                 key={item.id}
                 type="button"
                 onClick={() => router.push(`/chat?conversationId=${item.id}`)}
-                className="w-full text-left flex items-center justify-between px-2 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 rounded-lg transition-colors"
+                className="w-full text-left flex items-center justify-between px-2 py-3 border-b border-[var(--yori-outline)] last:border-0 hover:bg-[var(--yori-surface-muted)] rounded-lg transition-colors"
               >
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{item.title}</p>
-                  <p className="text-xs text-slate-500">{item.dateLabel}</p>
+                  <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{item.title}</p>
+                  <p className="text-xs text-[var(--yori-ink-soft)]">{item.dateLabel}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <ChevronRight className="h-4 w-4 text-[var(--yori-ink-soft)]" />
               </button>
             ))}
-          <div className="pt-2 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => router.push("/memory/history")}
-              className="mx-auto block rounded-full border border-slate-300 text-slate-700 px-4 py-2 text-sm font-semibold active:scale-98 transition-transform"
-            >
-              もっと見る
-            </button>
-          </div>
+        </div>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => router.push("/memory/history")}
+            className="btn-secondary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
+          >
+            もっと見る
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </section>
 
-      <div className="text-center text-xs text-slate-500 pb-4">
+      <div className="text-center text-xs text-[var(--yori-ink-soft)] pb-4">
         <button
           type="button"
-          onClick={() => router.push("/")}
-          className="inline-flex items-center gap-1 text-[#13274B] font-semibold"
+          onClick={() => {
+            refetchProfile()
+            setLoadingConversations(true)
+            setLoadingDocs(true)
+            getConversations(USER_ID, 5, 0)
+              .then((data) => setConversations(data))
+              .finally(() => setLoadingConversations(false))
+            listDocuments(USER_ID)
+              .then((items) => setDocumentsCount(items.length))
+              .finally(() => setLoadingDocs(false))
+          }}
+          className="inline-flex items-center gap-1 text-[var(--yori-ink-strong)] font-semibold"
         >
-          最新の相談を確認 <RefreshCcw className="h-4 w-4" />
+          最新を確認
+          <RefreshCcw className="h-4 w-4" />
         </button>
       </div>
     </div>

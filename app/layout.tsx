@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react"
+import type { ReactNode } from "react"
 import type { Metadata } from "next"
 import { Noto_Sans_JP } from "next/font/google"
 import "./globals.css"
@@ -11,16 +11,14 @@ const noto = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   title: "Yorizo",
-  description: "小規模事業者のモヤモヤを整えるAIパートナー",
+  description: "中小企業診断士が伴走するAIパートナー「Yorizo」",
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja">
-      <body className={`${noto.className} text-slate-900 antialiased bg-gradient-to-b from-pink-50 via-purple-50 to-sky-50`}>
-        <div className="min-h-screen flex flex-col items-center">
-          <div className="max-w-md w-full mx-auto min-h-screen flex flex-col">{children}</div>
-        </div>
+      <body className={`${noto.className} antialiased text-[var(--yori-ink)] bg-[var(--yori-canvas)]`}>
+        <div className="min-h-screen">{children}</div>
       </body>
     </html>
   )
