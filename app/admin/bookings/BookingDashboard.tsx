@@ -514,7 +514,7 @@ export function BookingDashboard({ bookings }: Props) {
                   ))}
                 </ul>
               </div>
-              {report.key_topics.length > 0 && (
+              {report.key_topics?.length ? (
                 <div>
                   <p className="text-xs text-slate-500">重要トピック</p>
                   <div className="flex flex-wrap gap-2">
@@ -525,7 +525,7 @@ export function BookingDashboard({ bookings }: Props) {
                     ))}
                   </div>
                 </div>
-              )}
+              ) : null}
               {report.homework.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs text-slate-500">宿題</p>

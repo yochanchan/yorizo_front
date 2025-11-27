@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { getCompanyProfile, type CompanyProfile } from "@/lib/api"
 
 type State = {
@@ -13,7 +13,7 @@ export function useCompanyProfile(userId: string): State {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
@@ -25,11 +25,11 @@ export function useCompanyProfile(userId: string): State {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [userId])
 
   useEffect(() => {
-    fetchProfile()
-  }, [userId])
+    void fetchProfile()
+  }, [fetchProfile])
 
   return { data, isLoading, error, refetch: fetchProfile }
 }

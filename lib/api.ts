@@ -253,6 +253,7 @@ export type ConversationReport = {
   strengths: string[]
   weaknesses: string[]
   homework: ReportHomework[]
+  key_topics?: string[]
 }
 
 export async function getConversationReport(conversationId: string): Promise<ConversationReport> {
