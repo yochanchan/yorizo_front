@@ -87,7 +87,7 @@ export default function HomePage() {
       </section>
 
       <section className="mt-2 mb-10">
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-6 px-4">
             <Image
             src="/logos/meti.png"
             alt="経済産業省"

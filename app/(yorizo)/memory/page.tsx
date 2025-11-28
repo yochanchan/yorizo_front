@@ -13,6 +13,7 @@ import {
 import { MascotIcon } from "@/components/MascotIcon"
 import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
 import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
+import { cleanConversationTitle } from "@/lib/utils"
 
 const USER_ID = "demo-user"
 
@@ -68,7 +69,7 @@ export default function MemoryPage() {
   const formattedConversations = useMemo(() => {
     return conversations.map((c) => {
       const dateLabel = c.date ? c.date.replace(/-/g, "/") : ""
-      return { ...c, dateLabel }
+      return { ...c, title: cleanConversationTitle(c.title), dateLabel }
     })
   }, [conversations])
 
@@ -141,11 +142,11 @@ export default function MemoryPage() {
           <div className="yori-card bg-[var(--yori-surface-muted)] p-4 space-y-2">
             <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{latestConversation.title}</p>
             <p className="text-xs text-[var(--yori-ink-soft)]">{latestConversation.dateLabel}</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap">
               <button
                 type="button"
                 onClick={() => router.push(`/report/${latestConversation.id}`)}
-                className="btn-secondary px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
+                className="btn-secondary inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold md:text-base flex-shrink-0 whitespace-nowrap"
               >
                 レポートを見る
                 <ChevronRight className="h-4 w-4" />
@@ -153,7 +154,7 @@ export default function MemoryPage() {
               <button
                 type="button"
                 onClick={() => router.push(`/chat?conversationId=${latestConversation.id}`)}
-                className="btn-ghost px-4 py-2 text-sm font-semibold inline-flex items-center gap-2"
+                className="btn-ghost inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold md:text-base flex-shrink-0 whitespace-nowrap"
               >
                 チャットを開く
               </button>
