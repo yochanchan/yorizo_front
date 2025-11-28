@@ -89,7 +89,7 @@ export default function HomePage() {
       <section className="mt-2 mb-10">
         <div className="flex flex-wrap items-center justify-center gap-6 px-4">
             <Image
-            src="/logos/meti.png"
+            src="/logos/METI.png"
             alt="経済産業省"
             width={220}
             height={48}
@@ -97,7 +97,7 @@ export default function HomePage() {
             priority
           />
           <Image
-            src="/logos/chukicho.png"
+            src="/logos/CHUKICHO.png"
             alt="中小企業庁"
             width={180}
             height={48}
