@@ -367,10 +367,10 @@ function ChatPageContent() {
 
       <div className="sticky bottom-[calc(var(--yori-nav-height)+12px)] w-full">
         <div className="yori-card p-3 md:p-4 space-y-2 shadow-[0_18px_46px_rgba(39,35,67,0.18)]">
-          <div className="flex items-end gap-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              className="h-11 w-11 rounded-2xl border border-[var(--yori-outline)] bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--yori-outline)] bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]"
               onClick={() => document.getElementById("chat-file-input")?.click()}
               aria-label="資料を添付"
             >
@@ -381,14 +381,14 @@ function ChatPageContent() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="今の状況やモヤモヤしていることを自由に書いてください"
               rows={2}
-              className="flex-1 rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
+              className="flex-1 resize-none rounded-2xl border border-[var(--yori-outline)] bg-white px-4 py-3.5 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
               disabled={!allowFreeText}
             />
             <button
               type="button"
               onClick={handleSend}
               disabled={!canSend}
-              className={`h-11 w-11 rounded-full flex items-center justify-center text-white transition-transform ${
+              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-white transition-transform ${
                 canSend
                   ? "bg-[var(--yori-primary)] text-[var(--yori-primary-ink)] shadow-[0_12px_28px_rgba(255,216,3,0.45)] hover:scale-[1.02]"
                   : "bg-slate-300 cursor-not-allowed"

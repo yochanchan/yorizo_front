@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronRight, Loader2, NotebookText } from "lucide-react"
 import { getConversations, type ConversationSummary } from "@/lib/api"
+import { cleanConversationTitle } from "@/lib/utils"
 
 export default function ChatHistoryPage() {
   const router = useRouter()
@@ -15,7 +16,7 @@ export default function ChatHistoryPage() {
     const fetchData = async () => {
       try {
         const data = await getConversations("demo-user", 50, 0)
-        setItems(data)
+        setItems(data.map((item) => ({ ...item, title: cleanConversationTitle(item.title) })))
       } catch (err) {
         console.error(err)
         setError("チャット履歴を取得できませんでした。")
