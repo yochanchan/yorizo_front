@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { ChangeEvent, FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowRight, FileUp, SendHorizontal, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChatBubble } from "@/components/ChatBubble"
@@ -104,6 +104,10 @@ function ChatPageContent() {
   const [uploading, setUploading] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const BASE_TEXTAREA_HEIGHT = 24
+  const MAX_TEXTAREA_HEIGHT = 112
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -144,6 +148,30 @@ function ChatPageContent() {
   const allowFreeText = lastAssistant?.done ? false : (lastAssistant?.allowFreeText ?? true)
   const canSend = allowFreeText && input.trim().length > 0 && !loading
   const done = lastAssistant?.done ?? false
+  const isSending = loading
+
+  const handleUploadClick = () => fileInputRef.current?.click()
+  const resetTextareaHeight = () => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = `${BASE_TEXTAREA_HEIGHT}px`
+  }
+  const adjustTextareaHeight = () => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = "0px"
+    const next = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)
+    el.style.height = `${Math.max(next, BASE_TEXTAREA_HEIGHT)}px`
+  }
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    adjustTextareaHeight()
+  }
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!canSend) return
+    void handleSend()
+  }
 
   const appendAssistant = (res: ChatTurnResponse) => {
     const assistantMessage: ChatMessage = {
@@ -200,6 +228,7 @@ function ChatPageContent() {
     if (loading) return
     addUserMessage(option.label, { type: "choice", choiceId: option.id })
     setInput("")
+    resetTextareaHeight()
     await sendToBackend({
       message: option.label,
       selection: { type: "choice", id: option.id, label: option.label },
@@ -211,6 +240,7 @@ function ChatPageContent() {
     const text = input.trim()
     addUserMessage(text, { type: "free_text" })
     setInput("")
+    resetTextareaHeight()
     await sendToBackend({ message: text, selection: { type: "free_text", text } })
   }
 
@@ -365,54 +395,46 @@ function ChatPageContent() {
         </div>
       )}
 
-      <div className="sticky bottom-[calc(var(--yori-nav-height)+12px)] w-full">
-        <div className="yori-card p-3 md:p-4 space-y-2 shadow-[0_18px_46px_rgba(39,35,67,0.18)]">
-          <div className="flex items-center gap-3">
+      <form onSubmit={handleSubmit} className="sticky bottom-0 inset-x-0 border-t bg-slate-50/95 backdrop-blur">
+        <div className="mx-auto max-w-3xl px-3 py-2 md:px-4 md:py-3">
+          <div className="flex items-center gap-2 rounded-2xl border bg-white px-4 py-2 shadow-sm">
             <button
               type="button"
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--yori-outline)] bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]"
-              onClick={() => document.getElementById("chat-file-input")?.click()}
+              onClick={handleUploadClick}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
               aria-label="資料を添付"
             >
-              <FileUp className="h-5 w-5" />
+              <FileUp className="h-4 w-4" />
             </button>
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="今の状況やモヤモヤしていることを自由に書いてください"
-              rows={2}
-              className="flex-1 resize-none rounded-2xl border border-[var(--yori-outline)] bg-white px-4 py-3.5 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
+              onChange={handleInputChange}
+              placeholder="今の状況やモヤモヤしていることを書いてみましょう"
+              rows={1}
+              style={{ height: `${BASE_TEXTAREA_HEIGHT}px`, overflowY: "auto" }}
+              className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-sm md:text-base leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               disabled={!allowFreeText}
             />
             <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend}
-              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-white transition-transform ${
-                canSend
-                  ? "bg-[var(--yori-primary)] text-[var(--yori-primary-ink)] shadow-[0_12px_28px_rgba(255,216,3,0.45)] hover:scale-[1.02]"
-                  : "bg-slate-300 cursor-not-allowed"
-              }`}
+              type="submit"
+              disabled={!allowFreeText || !input.trim() || isSending}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-default"
               aria-label="送信"
             >
-              <SendHorizontal className="h-5 w-5" />
+              <SendHorizontal className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex items-center justify-between px-1 text-[11px] text-[var(--yori-ink-soft)]">
-            <div className="flex items-center gap-2">
-              <FileUp className="h-3.5 w-3.5" />
-              <span>{uploading ? "アップロード中..." : "決算書やメモなどの資料も一緒に添付できます"}</span>
-            </div>
-            <input
-              id="chat-file-input"
-              type="file"
-              accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
         </div>
-      </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
+          onChange={handleFileChange}
+        />
+      </form>
     </div>
   )
 }

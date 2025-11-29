@@ -226,12 +226,47 @@ export type ConversationDetail = {
   id: string
   title: string
   started_at: string | null
+  ended_at?: string | null
+  category?: string | null
+  status?: string | null
+  step?: number | null
   messages: ConversationMessage[]
 }
 
 export async function getConversationDetail(conversationId: string): Promise<ConversationDetail> {
   const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}`, { cache: "no-store" })
   if (!res.ok) throw new Error(`conversation fetch failed: ${res.status}`)
+  return res.json()
+}
+
+export type LocalBenchmarkScore = {
+  label: string
+  description: string
+  score: number | null
+}
+
+export type CompanyAnalysisCategory = {
+  category: string
+  items: string[]
+}
+
+export type CompanyAnalysisReport = {
+  company_id: string
+  last_updated_at: string | null
+  summary: string
+  basic_info_note: string
+  finance_scores: LocalBenchmarkScore[]
+  pain_points: CompanyAnalysisCategory[]
+  strengths: string[]
+  weaknesses: string[]
+  action_items: string[]
+}
+
+export async function getCompanyAnalysisReport(companyId: string): Promise<CompanyAnalysisReport> {
+  const url = new URL(`${API_BASE_URL}/api/reports/company-analysis`)
+  url.searchParams.set("company_id", companyId)
+  const res = await fetch(url.toString(), { cache: "no-store" })
+  if (!res.ok) throw new Error(`company analysis fetch failed: ${res.status}`)
   return res.json()
 }
 
