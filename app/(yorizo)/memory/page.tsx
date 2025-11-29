@@ -1,15 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { ChevronRight, Loader2, RefreshCcw, Sprout, Folder } from "lucide-react"
 import { useRouter } from "next/navigation"
-import {
-  getConversations,
-  listDocuments,
-  listHomework,
-  type ConversationSummary,
-  type HomeworkTask,
-} from "@/lib/api"
+import { getConversations, listDocuments, listHomework, type ConversationSummary, type HomeworkTask } from "@/lib/api"
 import { MascotIcon } from "@/components/MascotIcon"
 import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
 import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
@@ -22,7 +17,7 @@ export default function MemoryPage() {
   const { data: profile, isLoading: loadingProfile, refetch: refetchProfile } = useCompanyProfile(USER_ID)
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [pendingHomework, setPendingHomework] = useState<HomeworkTask[]>([])
-  const [documentsCount, setDocumentsCount] = useState<number>(0)
+  const [documentsCount, setDocumentsCount] = useState(0)
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [loadingDocs, setLoadingDocs] = useState(true)
 
@@ -67,16 +62,16 @@ export default function MemoryPage() {
   }, [])
 
   const formattedConversations = useMemo(() => {
-    return conversations.map((c) => {
-      const dateLabel = c.date ? c.date.replace(/-/g, "/") : ""
-      return { ...c, title: cleanConversationTitle(c.title), dateLabel }
+    return conversations.map((conversation) => {
+      const dateLabel = conversation.date ? conversation.date.replace(/-/g, "/") : ""
+      return { ...conversation, title: cleanConversationTitle(conversation.title), dateLabel }
     })
   }, [conversations])
 
   const latestConversation = formattedConversations[0]
 
   const stats = [
-    { label: "相談回数", value: `${conversations.length}件` },
+    { label: "相談件数", value: `${conversations.length}件` },
     { label: "未完了の宿題", value: `${pendingHomework.length}件` },
     { label: "保存資料", value: loadingDocs ? "読み込み中" : `${documentsCount}件` },
   ]
@@ -84,14 +79,23 @@ export default function MemoryPage() {
   return (
     <div className="flex flex-col gap-5">
       <section className="yori-card-muted p-5 md:p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <MascotIcon size="lg" />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizoの記憶</p>
-            <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
-              これまでの相談内容や宿題、会社の資料をあとから落ち着いて見返せます。
-            </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <MascotIcon size="lg" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizoの記憶</p>
+              <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
+                これまでの相談内容や会社の情報、宿題をまとめて振り返ることができます。
+              </p>
+            </div>
           </div>
+          <Link
+            href="/report"
+            className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold"
+          >
+            企業分析レポートを見る
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -132,7 +136,7 @@ export default function MemoryPage() {
         {loadingConversations && (
           <div className="flex items-center gap-2 text-xs text-[var(--yori-ink-soft)]">
             <Loader2 className="h-4 w-4 animate-spin" />
-            読み込み中…
+            <span>読み込み中…</span>
           </div>
         )}
         {!loadingConversations && !latestConversation && (
@@ -187,7 +191,7 @@ export default function MemoryPage() {
           {loadingConversations && (
             <div className="flex items-center gap-2 text-xs text-[var(--yori-ink-soft)] px-2 py-3">
               <Loader2 className="h-4 w-4 animate-spin" />
-              読み込み中…
+              <span>読み込み中…</span>
             </div>
           )}
           {!loadingConversations &&
