@@ -1,6 +1,14 @@
-"use client"
+﻿"use client"
 
-import { ChangeEvent, FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ChangeEvent,
+  FormEvent,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { ArrowRight, FileUp, SendHorizontal, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChatBubble } from "@/components/ChatBubble"
@@ -9,6 +17,7 @@ import {
   uploadDocument,
   getConversationDetail,
   type ChatOption,
+  type ChatCTAButton,
   type ChatTurnResponse,
   type ConversationDetail,
 } from "@/lib/api"
@@ -19,6 +28,7 @@ type ChatMessage = {
   content: string
   question?: string
   options?: ChatOption[]
+  ctaButtons?: ChatCTAButton[]
   allowFreeText?: boolean
   step?: number
   done?: boolean
@@ -37,12 +47,12 @@ const fallbackAssistant: ChatMessage = {
   id: "intro",
   role: "assistant",
   content: "",
-  question: "まずは気になっているテーマを教えてください。下のチップを選んでも、自由に入力しても大丈夫です。",
+  question: "まず今いちばん気になっているテーマを教えてください。下のチップから選んでも、自由入力でも大丈夫です。",
   options: [
-    { id: "sales", label: "売上が伸びない", value: "売上が伸び悩んでいる" },
-    { id: "cash", label: "資金繰りが不安", value: "資金繰りが不安定" },
-    { id: "staff", label: "人手・採用の悩み", value: "人手不足がある" },
-    { id: "ops", label: "業務がバタバタしている", value: "業務フローを見直したい" },
+    { id: "sales", label: "売上が伸びない📉", value: "売上が伸び悩んでいる" },
+    { id: "cash", label: "資金繰りが不安💸", value: "資金繰りが不安" },
+    { id: "staff", label: "人手・採用の悩み🧑‍🤝‍🧑", value: "人手不足がある" },
+    { id: "ops", label: "業務がバタバタしている⚙️", value: "業務フローを見直したい" },
   ],
   step: 1,
   done: false,
@@ -68,13 +78,14 @@ function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
           content: parsed.reply ?? parsed.message ?? parsed.content ?? "",
           question: parsed.question ?? "",
           options: parsed.options ?? [],
+          ctaButtons: parsed.cta_buttons ?? [],
           allowFreeText: parsed.allow_free_text ?? true,
           step: parsed.step,
           done: parsed.done,
         })
         return
       } catch {
-        // fallback below
+        // ignore parse errors and fall back
       }
     }
     items.push({
@@ -106,8 +117,8 @@ function ChatPageContent() {
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const BASE_TEXTAREA_HEIGHT = 24
-  const MAX_TEXTAREA_HEIGHT = 112
+  const BASE_TEXTAREA_HEIGHT = 40
+  const MAX_TEXTAREA_HEIGHT = 120
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -142,6 +153,8 @@ function ChatPageContent() {
     () => [...messages].reverse().find((m) => m.role === "assistant"),
     [messages],
   )
+  const ctaButtons = lastAssistant?.ctaButtons ?? []
+  const quickOptions = lastAssistant?.options ?? []
   const currentStep =
     (lastAssistant?.step ?? messages.filter((m) => m.role === "assistant").length) || 1
   const totalSteps = DEFAULT_TOTAL_STEPS
@@ -149,6 +162,7 @@ function ChatPageContent() {
   const canSend = allowFreeText && input.trim().length > 0 && !loading
   const done = lastAssistant?.done ?? false
   const isSending = loading
+  const inputPlaceholder = allowFreeText ? "ご相談内容を自由に入力してください…" : "選択肢から選んでください"
 
   const handleUploadClick = () => fileInputRef.current?.click()
   const resetTextareaHeight = () => {
@@ -180,6 +194,7 @@ function ChatPageContent() {
       content: res.reply,
       question: res.question,
       options: res.options ?? [],
+      ctaButtons: res.cta_buttons ?? [],
       allowFreeText: res.allow_free_text,
       step: res.step,
       done: res.done,
@@ -260,7 +275,7 @@ function ChatPageContent() {
       setAttachments((prev) => [...prev, { id: result.document_id, filename: result.filename }])
     } catch (err) {
       console.error(err)
-      setUploadError("ファイルをアップロードできませんでした。10MB以下のPDF/画像/CSV/XLSXに対応しています。")
+      setUploadError("ファイルをアップロードできませんでした。50MB以下で PDF・画像・CSV・XLSX に対応しています。")
     } finally {
       setUploading(false)
       if (event.target) event.target.value = ""
@@ -271,13 +286,21 @@ function ChatPageContent() {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }
 
+  const handleCTA = (button: ChatCTAButton) => {
+    if (button.action === "open_memory") {
+      router.push("/memory")
+      return
+    }
+    if (button.action === "open_report" && conversationId) {
+      router.push(`/report/${conversationId}`)
+      return
+    }
+  }
+
   const renderMessage = (msg: ChatMessage) => {
     const isAssistant = msg.role === "assistant"
-    const questionText = (msg.question || msg.content || "ご状況を教えてください。").trim()
-    const subText =
-      msg.question && msg.content && msg.content.trim() !== msg.question.trim()
-        ? msg.content
-        : ""
+    const replyText = (msg.content || "").trim()
+    const questionText = (msg.question || "").trim()
 
     return (
       <div key={msg.id} className="space-y-3">
@@ -291,35 +314,22 @@ function ChatPageContent() {
         >
           {isAssistant ? (
             <div className="space-y-2">
-              <p className="text-[11px] text-slate-500">Yorizoからの質問</p>
-              <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-line">
-                {questionText}
-              </p>
-              {subText ? (
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line line-clamp-3">
-                  {subText}
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Yorizoからのメッセージ</p>
+              {replyText && (
+                <p className="text-sm text-slate-900 leading-relaxed whitespace-pre-line break-words">
+                  {replyText}
                 </p>
-              ) : null}
+              )}
+              {questionText && (
+                <p className="text-sm font-semibold text-slate-800 leading-relaxed whitespace-pre-line break-words">
+                  {questionText}
+                </p>
+              )}
             </div>
           ) : (
-            <span className="leading-relaxed whitespace-pre-line">{msg.content}</span>
+            <span className="leading-relaxed whitespace-pre-line break-words">{msg.content}</span>
           )}
         </ChatBubble>
-        {isAssistant && msg.options && msg.options.length > 0 && (
-          <div className="flex flex-wrap gap-2 pl-2">
-            {msg.options.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-sky-300 hover:bg-sky-50 transition disabled:opacity-60"
-                onClick={() => handleOptionClick(opt)}
-                disabled={loading || done || lastAssistant?.id !== msg.id}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     )
   }
@@ -346,7 +356,7 @@ function ChatPageContent() {
           {loading && (
             <div className="flex justify-start">
               <span className="rounded-full border border-slate-200 bg-white px-4 py-1 text-xs text-[var(--yori-ink-strong)] shadow-sm">
-                Yorizoが考えています...
+                Yorizoが考えています…
               </span>
             </div>
           )}
@@ -356,15 +366,54 @@ function ChatPageContent() {
         </div>
       )}
 
+      {ctaButtons.length > 0 && (
+        <div className="px-1 sm:px-2">
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-white/40 bg-white/80 px-3 py-2 text-xs text-[var(--yori-ink-soft)] shadow-sm">
+            {ctaButtons.map((btn) => (
+              <button
+                key={btn.id}
+                type="button"
+                onClick={() => handleCTA(btn)}
+                className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-white/90 px-3 py-1 text-xs sm:text-sm text-[var(--yori-ink-strong)] shadow-sm hover:bg-[var(--yori-secondary)] transition"
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {quickOptions.length > 0 && (
+        <div className="w-full rounded-2xl border border-white/70 bg-white/80 px-4 pb-3 pt-2 shadow-sm sm:px-6">
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-[var(--yori-ink-soft)] sm:text-sm">
+            <span className="text-base">👀</span>
+            <span>この中に近いものある？</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {quickOptions.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="inline-flex items-center rounded-full border border-transparent bg-white px-3 py-1 text-xs text-[var(--yori-ink-strong)] shadow-sm transition hover:border-[var(--yori-outline)] hover:bg-white/80 sm:text-sm disabled:opacity-50"
+                onClick={() => handleOptionClick(opt)}
+                disabled={loading || done}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {done && conversationId && (
         <div className="yori-card p-4 space-y-3">
-          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">診断内容がまとまりました。</p>
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">相談メモがまとまりました。</p>
           <button
             type="button"
             onClick={() => router.push(`/report/${conversationId}`)}
             className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
           >
-            診断レポートを見る
+            相談メモを確認する
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -401,7 +450,8 @@ function ChatPageContent() {
             <button
               type="button"
               onClick={handleUploadClick}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              disabled={uploading}
               aria-label="資料を添付"
             >
               <FileUp className="h-4 w-4" />
@@ -410,10 +460,10 @@ function ChatPageContent() {
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
-              placeholder="今の状況やモヤモヤしていることを書いてみましょう"
+              placeholder={inputPlaceholder}
               rows={1}
               style={{ height: `${BASE_TEXTAREA_HEIGHT}px`, overflowY: "auto" }}
-              className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-sm md:text-base leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              className="flex-1 h-full min-h-[40px] max-h-[120px] resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px]"
               disabled={!allowFreeText}
             />
             <button
