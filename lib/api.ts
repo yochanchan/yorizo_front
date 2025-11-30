@@ -202,14 +202,16 @@ export type AvailabilityDay = {
   slots: string[]
 }
 
+const EXPERTS_ENDPOINT = `${API_BASE_URL}/api/experts`
+
 export async function getExperts(): Promise<Expert[]> {
-  const res = await fetch(`${API_BASE_URL}/api/experts`, { cache: "no-store" })
+  const res = await fetch(EXPERTS_ENDPOINT, { cache: "no-store" })
   if (!res.ok) throw new Error(`experts fetch failed: ${res.status}`)
   return res.json()
 }
 
 export async function getExpertAvailability(expertId: string): Promise<AvailabilityDay[]> {
-  const res = await fetch(`${API_BASE_URL}/api/experts/${expertId}/availability`, { cache: "no-store" })
+  const res = await fetch(`${EXPERTS_ENDPOINT}/${expertId}/availability`, { cache: "no-store" })
   if (!res.ok) throw new Error(`availability fetch failed: ${res.status}`)
   const data = await res.json()
   return data?.availability ?? []
