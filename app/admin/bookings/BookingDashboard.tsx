@@ -58,9 +58,10 @@ function toYMD(date: Date) {
 
 type Props = {
   bookings: AdminBooking[]
+  expertId?: string
 }
 
-export function BookingDashboard({ bookings }: Props) {
+export function BookingDashboard({ bookings, expertId }: Props) {
   const [bookingsData, setBookingsData] = useState<AdminBooking[]>(bookings)
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
@@ -91,7 +92,7 @@ export function BookingDashboard({ bookings }: Props) {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const latest = await getAdminBookings({ limit: 100 })
+      const latest = await getAdminBookings({ limit: 100, expert_id: expertId })
       setBookingsData(latest)
     } catch (err) {
       console.error(err)
