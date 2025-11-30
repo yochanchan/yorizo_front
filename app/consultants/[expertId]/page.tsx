@@ -28,7 +28,7 @@ export default async function ConsultantDashboardPage({ params }: Props) {
           </div>
         </header>
 
-        <BookingDashboard bookings={bookings} />
+        <BookingDashboard bookings={bookings} expertId={expertId} />
       </div>
     </div>
   )
