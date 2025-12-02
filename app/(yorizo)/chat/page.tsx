@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import {
   ChangeEvent,
@@ -47,12 +47,14 @@ const fallbackAssistant: ChatMessage = {
   id: "intro",
   role: "assistant",
   content: "",
-  question: "まず今いちばん気になっているテーマを教えてください。下のチップから選んでも、自由入力でも大丈夫です。",
+  question:
+    "まずは、気になっているテーマを1つ選んでください。\nどれもピンとこなければ「その他」を選んでください。",
   options: [
-    { id: "sales", label: "売上が伸びない📉", value: "売上が伸び悩んでいる" },
-    { id: "cash", label: "資金繰りが不安💸", value: "資金繰りが不安" },
-    { id: "staff", label: "人手・採用の悩み🧑‍🤝‍🧑", value: "人手不足がある" },
-    { id: "ops", label: "業務がバタバタしている⚙️", value: "業務フローを見直したい" },
+    { id: "sales", label: "売上・集客", value: "売上・集客" },
+    { id: "cash", label: "資金繰り・お金の流れ", value: "資金繰り・お金の流れ" },
+    { id: "staff", label: "採用・スタッフ", value: "採用・スタッフ" },
+    { id: "ops", label: "業務の回し方", value: "業務の回し方" },
+    { id: "other", label: "その他", value: "その他" },
   ],
   step: 1,
   done: false,
@@ -113,15 +115,21 @@ function ChatPageContent() {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null)
 
-  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const BASE_TEXTAREA_HEIGHT = 40
-  const MAX_TEXTAREA_HEIGHT = 120
+  const BASE_TEXTAREA_HEIGHT = 44
+  const MAX_TEXTAREA_HEIGHT = 140
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    const container = messagesContainerRef.current
+    if (!container) return
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: messages.length > 1 ? "smooth" : "auto",
+    })
   }, [messages, loading])
 
   useEffect(() => {
@@ -139,7 +147,7 @@ function ChatPageContent() {
         setConversationId(initialConversationId)
       } catch (err) {
         console.error(err)
-        setError("過去の会話を読み込めませんでした。時間をおいて再度お試しください。")
+        setError("yorizoとの通信に失敗しました。時間をおいて再度お試しください。")
         setMessages([fallbackAssistant])
         setConversationId(null)
       } finally {
@@ -162,7 +170,7 @@ function ChatPageContent() {
   const canSend = allowFreeText && input.trim().length > 0 && !loading
   const done = lastAssistant?.done ?? false
   const isSending = loading
-  const inputPlaceholder = allowFreeText ? "ご相談内容を自由に入力してください…" : "選択肢から選んでください"
+  const inputPlaceholder = allowFreeText ? "ご相談内容を入力してください" : "選択肢から選んでください"
 
   const handleUploadClick = () => fileInputRef.current?.click()
   const resetTextareaHeight = () => {
@@ -223,10 +231,10 @@ function ChatPageContent() {
       url.searchParams.set("conversationId", res.conversation_id)
       url.searchParams.delete("reset")
       if (topic) url.searchParams.set("topic", topic)
-      router.replace(url.toString())
+      router.replace(url.toString(), { scroll: false })
     } catch (err) {
       console.error(err)
-      setError(err instanceof Error ? err.message : "Yorizoとの通信に失敗しました。時間をおいて再度お試しください。")
+      setError(err instanceof Error ? err.message : "yorizoとの通信に失敗しました。時間をおいて再度お試しください。")
     } finally {
       setLoading(false)
     }
@@ -264,6 +272,7 @@ function ChatPageContent() {
     if (!file) return
     setUploading(true)
     setUploadError(null)
+    setUploadMessage(null)
     try {
       const result = await uploadDocument({
         file,
@@ -273,9 +282,11 @@ function ChatPageContent() {
         conversation_id: conversationId ?? undefined,
       })
       setAttachments((prev) => [...prev, { id: result.document_id, filename: result.filename }])
+      setUploadMessage(`${result.filename} を保存しました`)
+      setTimeout(() => setUploadMessage(null), 2500)
     } catch (err) {
       console.error(err)
-      setUploadError("ファイルをアップロードできませんでした。50MB以下で PDF・画像・CSV・XLSX に対応しています。")
+      setUploadError("ファイルをアップロードできませんでした。10MB以下の PDF / 画像 / CSV / XLSX に対応しています。")
     } finally {
       setUploading(false)
       if (event.target) event.target.value = ""
@@ -314,7 +325,7 @@ function ChatPageContent() {
         >
           {isAssistant ? (
             <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Yorizoからのメッセージ</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">yorizo からのメッセージ</p>
               {replyText && (
                 <p className="text-sm text-slate-900 leading-relaxed whitespace-pre-line break-words">
                   {replyText}
@@ -335,7 +346,7 @@ function ChatPageContent() {
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 pb-20 px-4 md:px-6">
+    <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 pb-24 px-4 md:px-6">
       <div className="flex items-center justify-between text-xs text-[var(--yori-ink-soft)] py-2">
         <span className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-white px-3 py-1 font-semibold text-[var(--yori-ink-strong)] shadow-sm">
           ヒアリング
@@ -348,21 +359,21 @@ function ChatPageContent() {
       {bootstrapLoading ? (
         <div className="flex items-center gap-2 text-sm text-[var(--yori-ink-soft)] py-6">
           <div className="h-4 w-4 rounded-full border-2 border-[var(--yori-outline)] border-t-[var(--yori-ink-strong)] animate-spin" />
-          <span>会話を読み込み中...</span>
+          <span>読み込み中...</span>
         </div>
       ) : (
-        <div className="flex-1 min-h-[320px] space-y-4 overflow-y-auto pr-1">
+        <div ref={messagesContainerRef} className="flex-1 min-h-[320px] space-y-4 overflow-y-auto pr-1">
           {messages.map((m) => renderMessage(m))}
           {loading && (
             <div className="flex justify-start">
               <span className="rounded-full border border-slate-200 bg-white px-4 py-1 text-xs text-[var(--yori-ink-strong)] shadow-sm">
-                Yorizoが考えています…
+                yorizoが考えています…
               </span>
             </div>
           )}
           {error && <p className="text-xs text-rose-600">{error}</p>}
           {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
-          <div ref={bottomRef} />
+          {uploadMessage && <p className="text-xs text-emerald-600">{uploadMessage}</p>}
         </div>
       )}
 
@@ -386,8 +397,8 @@ function ChatPageContent() {
       {quickOptions.length > 0 && (
         <div className="w-full rounded-2xl border border-white/70 bg-white/80 px-4 pb-3 pt-2 shadow-sm sm:px-6">
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-[var(--yori-ink-soft)] sm:text-sm">
-            <span className="text-base">👀</span>
-            <span>この中に近いものある？</span>
+            <span className="text-base">🧭</span>
+            <span>どのテーマから始めますか？</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {quickOptions.map((opt) => (
@@ -450,7 +461,7 @@ function ChatPageContent() {
             <button
               type="button"
               onClick={handleUploadClick}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
               disabled={uploading}
               aria-label="資料を添付"
             >
@@ -463,13 +474,13 @@ function ChatPageContent() {
               placeholder={inputPlaceholder}
               rows={1}
               style={{ height: `${BASE_TEXTAREA_HEIGHT}px`, overflowY: "auto" }}
-              className="flex-1 h-full min-h-[40px] max-h-[120px] resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px]"
+              className="flex-1 h-full min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px]"
               disabled={!allowFreeText}
             />
             <button
               type="submit"
               disabled={!allowFreeText || !input.trim() || isSending}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-default"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-default"
               aria-label="送信"
             >
               <SendHorizontal className="h-4 w-4" />
@@ -480,7 +491,6 @@ function ChatPageContent() {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          multiple
           accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
           onChange={handleFileChange}
         />

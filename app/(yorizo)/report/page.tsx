@@ -1,11 +1,14 @@
-﻿"use client"
+"use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ChevronRight, Loader2, RefreshCcw } from "lucide-react"
+import { ArrowLeft, Loader2, RefreshCcw, Sparkles } from "lucide-react"
+
+import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
 import { getCompanyAnalysisReport, type CompanyAnalysisReport, type LocalBenchmarkAxis } from "@/lib/api"
 import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
-import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
+
+import { IMAKOKO_LABELS } from "./labels"
 
 const USER_ID = "demo-user"
 
@@ -28,7 +31,6 @@ function RadarChart({ axes }: { axes: LocalBenchmarkAxis[] }) {
   }
 
   const polygonPoints = axes.map((axis, index) => pointFor(axis.score ?? 0, index)).join(" ")
-
   const gridLevels = Array.from({ length: levels }, (_, i) => (i + 1) / levels)
 
   return (
@@ -72,6 +74,15 @@ function RadarChart({ axes }: { axes: LocalBenchmarkAxis[] }) {
   )
 }
 
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl border border-[var(--yori-outline)] bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">{label}</p>
+      <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{value || "準備中"}</p>
+    </div>
+  )
+}
+
 export default function CompanyAnalysisReportPage() {
   const router = useRouter()
   const { data: profile, isLoading: loadingProfile } = useCompanyProfile(USER_ID)
@@ -87,7 +98,7 @@ export default function CompanyAnalysisReportPage() {
       setReport(data)
     } catch (err) {
       console.error(err)
-      setError(err instanceof Error ? err.message : "企業分析レポートを取得できませんでした。")
+      setError(err instanceof Error ? err.message : "イマココレポートを取得できませんでした。")
     } finally {
       setIsLoading(false)
     }
@@ -102,6 +113,22 @@ export default function CompanyAnalysisReportPage() {
     : "未取得"
 
   const benchmarkAxes = report?.local_benchmark?.axes ?? []
+  const painPointItems = useMemo(() => {
+    const items: string[] = []
+    report?.pain_points?.forEach((group) => items.push(...group.items))
+    return items
+  }, [report])
+
+  const strengths = report?.strengths ?? []
+  const weaknesses = report?.weaknesses ?? []
+  const actionItems = report?.action_items ?? []
+  const commentText = report?.basic_info_note || report?.summary || ""
+
+  const consultationTheme = report?.summary?.trim() || "チャット相談の内容から整理しています。"
+  const consultationPeriod = report?.last_updated_at
+    ? `${new Date(report.last_updated_at).toLocaleDateString("ja-JP")} 時点のチャット相談`
+    : "チャット相談全期間"
+  const infoSources = "チャット履歴 / 会社プロフィール / 添付資料"
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,7 +140,7 @@ export default function CompanyAnalysisReportPage() {
             className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Yorizoの記憶に戻る
+            Yorizoの記憶へ戻る
           </button>
           <button
             type="button"
@@ -125,34 +152,13 @@ export default function CompanyAnalysisReportPage() {
             レポートを更新
           </button>
         </div>
-        <div>
+        <div className="space-y-2">
           <p className="text-xs text-[var(--yori-ink-soft)]">最終更新: {formattedUpdatedAt}</p>
-          <h1 className="mt-1 text-2xl font-bold text-[var(--yori-ink-strong)]">企業分析レポート</h1>
-          <p className="mt-2 text-sm text-[var(--yori-ink)] leading-relaxed">
-            チャットの内容や登録情報、添付資料などをもとに、現在の経営状況を整理したレポートです。
-          </p>
+          <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.title}</h1>
+          <p className="text-base font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.subtitle}</p>
+          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-line">{IMAKOKO_LABELS.lead}</p>
         </div>
       </header>
-
-      {benchmarkAxes.length > 0 && report && (
-        <section className="yori-card p-5 space-y-4">
-          <div>
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">企業のバランス（ローカルベンチマーク）</p>
-            <p className="text-xs text-[var(--yori-ink-soft)]">6つの観点からバランスを可視化しています。</p>
-          </div>
-          <RadarChart axes={benchmarkAxes} />
-          <div className="grid gap-2 sm:grid-cols-2">
-            {benchmarkAxes.map((axis) => (
-              <div key={axis.id} className="flex items-center justify-between rounded-xl border border-[var(--yori-outline)] bg-white/80 px-3 py-2">
-                <p className="text-sm text-[var(--yori-ink-strong)]">{axis.label}</p>
-                <span className="text-sm font-semibold text-[var(--yori-ink)]">{axis.score}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <CompanyInfoSummaryCard profile={profile} loading={loadingProfile} onEdit={() => router.push("/company")} />
 
       {error && <p className="text-sm text-rose-500">{error}</p>}
       {isLoading && (
@@ -162,102 +168,136 @@ export default function CompanyAnalysisReportPage() {
         </div>
       )}
 
-      {report && !isLoading && (
+      {report && (
         <>
-          <section className="yori-card p-5 space-y-2">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">今回の整理サマリー</p>
-            <p className="text-sm text-[var(--yori-ink)] leading-relaxed">{report.summary}</p>
-          </section>
-
-          <section className="yori-card p-5 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">会社の基本情報</p>
+          <section className="yori-card p-5 md:p-6 space-y-4">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-5 w-5 text-[var(--yori-primary)]" />
+              <div>
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.scopeTitle}</p>
+                <p className="text-xs text-[var(--yori-ink-soft)]">
+                  直近の相談をもとに、今回の整理対象をまとめました。
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-[var(--yori-ink-soft)]">相談の前提となる会社の概要です。</p>
-            <p className="text-sm text-[var(--yori-ink)] leading-relaxed">{report.basic_info_note}</p>
+            <div className="space-y-2">
+              <InfoRow label="相談テーマ" value={consultationTheme} />
+              <InfoRow label="相談期間" value={consultationPeriod} />
+              <InfoRow label="元になった情報" value={infoSources} />
+            </div>
           </section>
 
-          <section className="yori-card p-5 space-y-3">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">財務・経営の状態</p>
-            <div className="space-y-3">
-              {(report.finance_scores ?? []).map((score) => (
-                <div
-                  key={score.label}
-                  className="flex flex-col gap-2 rounded-2xl border border-[var(--yori-outline)] bg-white/80 px-4 py-3 md:flex-row md:items-center md:justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{score.label}</p>
-                    <p className="text-sm text-[var(--yori-ink)] leading-snug">{score.description}</p>
-                  </div>
-                  <span className="inline-flex items-center justify-center rounded-full bg-[var(--yori-secondary)] px-3 py-1 text-sm font-semibold text-[var(--yori-ink-strong)]">
-                    {score.score ?? "-"}
-                  </span>
+          <section className="yori-card p-5 md:p-6 space-y-5">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.financeTitle}</p>
+              <p className="text-xs text-[var(--yori-ink-soft)]">ローカルベンチマークをもとにした簡易スコアです。</p>
+            </div>
+            <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
+              売上・利益・生産性など、いくつかの指標をもとに、あなたの会社の「今の立ち位置」をレーダーチャートで表しています。
+            </p>
+            {benchmarkAxes.length > 0 && (
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+                <div className="flex justify-center">
+                  <RadarChart axes={benchmarkAxes} />
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="space-y-2">
+                  {benchmarkAxes.map((axis) => (
+                    <div
+                      key={axis.id}
+                      className="flex items-center justify-between rounded-xl border border-[var(--yori-outline)] bg-white/80 px-3 py-2"
+                    >
+                      <p className="text-sm text-[var(--yori-ink-strong)]">{axis.label}</p>
+                      <span className="text-sm font-semibold text-[var(--yori-ink)]">{axis.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <section className="yori-card p-5 space-y-3">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">チャットから読み取れる経営課題</p>
-            <p className="text-xs text-[var(--yori-ink-soft)]">これまでの相談内容から整理した主なモヤモヤです。</p>
-            <div className="space-y-3">
-              {(report.pain_points ?? []).map((group) => (
-                <div key={group.category}>
-                  <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">{group.category}</p>
-                  <ul className="list-disc list-inside text-sm text-[var(--yori-ink)] space-y-1">
-                    {group.items.map((item) => (
+            {benchmarkAxes.length > 0 && (
+              <div className="yori-card bg-white/70 border border-[var(--yori-outline)] p-4 space-y-2">
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">この評価の理由</p>
+                <ul className="space-y-1 text-sm text-[var(--yori-ink)]">
+                  {benchmarkAxes.map((axis) => (
+                    <li key={`reason-${axis.id}`} className="leading-relaxed">
+                      <span className="font-semibold">{axis.label}</span>: {axis.reason || "理由は準備中です。"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="yori-card bg-[var(--yori-surface-muted)] border border-[var(--yori-outline)] p-4 space-y-2 md:col-span-3">
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.commentTitle}</p>
+                <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
+                  {commentText || "コメントは準備中です。"}
+                </p>
+              </div>
+              <div className="yori-card bg-[var(--yori-surface-muted)] border border-[var(--yori-outline)] p-4 space-y-2">
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.strengthsTitle}</p>
+                {strengths.length > 0 ? (
+                  <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
+                    {strengths.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="yori-card p-5 space-y-3">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">強み・弱み（ローカルベンチマークの観点）</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="yori-card bg-[var(--yori-surface-muted)] border border-[var(--yori-outline)] p-4 space-y-2">
-                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">強み</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
-                  {(report.strengths ?? []).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                ) : (
+                  <p className="text-sm text-[var(--yori-ink)]">強みはこれから整理します。</p>
+                )}
               </div>
-              <div className="yori-card bg-[var(--yori-surface-muted)] border border-[var(--yori-outline)] p-4 space-y-2">
-                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">弱み</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
-                  {(report.weaknesses ?? []).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+              <div className="yori-card bg-[var(--yori-surface-muted)] border border-[var(--yori-outline)] p-4 space-y-2 md:col-span-2">
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.weaknessesTitle}</p>
+                {weaknesses.length > 0 ? (
+                  <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
+                    {weaknesses.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-[var(--yori-ink)]">これから伸ばしたいところは準備中です。</p>
+                )}
               </div>
             </div>
           </section>
 
-          <section className="yori-card p-5 space-y-3">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">今後3〜6か月のアクション候補</p>
-            <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
-              {(report.action_items ?? []).map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={() => router.push("/yorozu")}
-              className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
-            >
-              よろず支援拠点への相談を検討する
-              <ChevronRight className="h-4 w-4" />
-            </button>
+          <CompanyInfoSummaryCard profile={profile} loading={loadingProfile} onEdit={() => router.push("/company")} />
+
+          <section className="yori-card p-5 md:p-6 space-y-3">
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.concernsTitle}</p>
+            <p className="text-xs text-[var(--yori-ink-soft)]">Yorizoとの会話から整理した“モヤモヤ”です。</p>
+            {painPointItems.length > 0 ? (
+              <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
+                {painPointItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--yori-ink)]">最近の気になることはまだ抽出されていません。</p>
+            )}
+          </section>
+
+          <section className="yori-card p-5 md:p-6 space-y-3">
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{IMAKOKO_LABELS.hintsTitle}</p>
+            <p className="text-xs text-[var(--yori-ink-soft)]">
+              Yorizoが会話やデータをもとに提案する、次の一歩の候補です。
+            </p>
+            {actionItems.length > 0 ? (
+              <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
+                {actionItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--yori-ink)]">提案は準備中です。</p>
+            )}
           </section>
         </>
       )}
 
       {!report && !isLoading && !error && (
         <div className="yori-card p-5 text-sm text-[var(--yori-ink-soft)]">
-          企業分析レポートはまだ生成されていません。レポートを更新ボタンを押して取得してください。
+          イマココレポートはまだ生成されていません。レポートを更新ボタンから取得してください。
         </div>
       )}
 

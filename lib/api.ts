@@ -270,6 +270,10 @@ export type LocalBenchmarkScore = {
   label: string
   description: string
   score: number | null
+  raw_value?: number | null
+  industry_avg?: number | null
+  thresholds?: Record<string, unknown> | null
+  reason?: string | null
 }
 
 export type CompanyAnalysisCategory = {
@@ -281,6 +285,7 @@ export type LocalBenchmarkAxis = {
   id: string
   label: string
   score: number
+  reason?: string | null
 }
 
 export type LocalBenchmark = {
