@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, Phone, Video, Notebook, Sparkles, RefreshCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -20,7 +20,7 @@ import {
 
 const channelLabel: Record<string, string> = {
   online: "オンライン",
-  "in-person": "来訪",
+  "in-person": "対面",
 }
 
 const statusLabel: Record<string, string> = {
@@ -56,6 +56,11 @@ function toYMD(date: Date) {
   return `${y}-${m}-${d}`
 }
 
+const cleanChoicePrefix = (text: string | null | undefined) => {
+  const trimmed = (text ?? "").trim()
+  return trimmed.replace(/^\[choice_id:[^\]]+\]\s*/i, "")
+}
+
 type Props = {
   bookings: AdminBooking[]
   expertId?: string
@@ -78,6 +83,44 @@ export function BookingDashboard({ bookings, expertId }: Props) {
   const [similarCases, setSimilarCases] = useState<SimilarCase[]>([])
   const [similarLoading, setSimilarLoading] = useState(false)
   const [similarError, setSimilarError] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [derivedConversationId, setDerivedConversationId] = useState<string | null>(null)
+  const memoCache = useRef<Record<string, ConsultationMemo>>({})
+  const reportCache = useRef<Record<string, ConversationReport>>({})
+
+  const persistCaches = useCallback(() => {
+    if (typeof window === "undefined") return
+    try {
+      window.sessionStorage.setItem("admin-memo-cache", JSON.stringify(memoCache.current))
+      window.sessionStorage.setItem("admin-report-cache", JSON.stringify(reportCache.current))
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const memoRaw = window.sessionStorage.getItem("admin-memo-cache")
+      const reportRaw = window.sessionStorage.getItem("admin-report-cache")
+      if (memoRaw) {
+        const parsed = JSON.parse(memoRaw)
+        if (parsed && typeof parsed === "object") memoCache.current = parsed as Record<string, ConsultationMemo>
+      }
+      if (reportRaw) {
+        const parsed = JSON.parse(reportRaw)
+        if (parsed && typeof parsed === "object") reportCache.current = parsed as Record<string, ConversationReport>
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [persistCaches])
+
+  const summaryItems = report?.summary ?? []
+  const keyTopicItems = report?.key_topics ?? []
+  const homeworkItems = report?.homework ?? []
+  const memoPoints = memo?.current_points ?? []
+  const memoImportantPoints = memo?.important_points ?? []
 
   const bookingById = useMemo(() => {
     const map: Record<string, AdminBooking> = {}
@@ -89,7 +132,7 @@ export function BookingDashboard({ bookings, expertId }: Props) {
 
   const selectedBooking = selectedId ? bookingById[selectedId] : null
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
       const latest = await getAdminBookings({ limit: 100, expert_id: expertId })
@@ -100,7 +143,7 @@ export function BookingDashboard({ bookings, expertId }: Props) {
     } finally {
       setRefreshing(false)
     }
-  }
+  }, [expertId])
 
   useEffect(() => {
     if (bookingsData.length === 0) {
@@ -133,7 +176,9 @@ export function BookingDashboard({ bookings, expertId }: Props) {
     const upcoming = [...bookingsData]
       .sort((a, b) => a.date.localeCompare(b.date))
       .find((b) => new Date(`${b.date}T00:00:00`) >= today)
-    setSelectedId((upcoming ?? bookingsData[0]).id)
+    const first = upcoming ?? bookingsData[0]
+    setSelectedId(first.id)
+    setSelectedDate(first.date)
   }, [bookingsData, bookingById, selectedId])
 
   useEffect(() => {
@@ -144,8 +189,10 @@ export function BookingDashboard({ bookings, expertId }: Props) {
   }, [selectedId])
 
   useEffect(() => {
-    // 初回とフォーカス時に最新を取得してステータス反映を早める
-    void handleRefresh()
+    // フォーカス時のみ最新取得（初回はSSR渡しのデータをそのまま使う）
+    if (bookingsData.length === 0) {
+      void handleRefresh()
+    }
     const handleFocus = () => {
       void handleRefresh()
     }
@@ -160,28 +207,46 @@ export function BookingDashboard({ bookings, expertId }: Props) {
       window.removeEventListener("focus", handleFocus)
       document.removeEventListener("visibilitychange", handleVisibility)
     }
-  }, [])
+  }, [handleRefresh, bookingsData.length])
 
   useEffect(() => {
     const fetchDetail = async () => {
       if (!selectedBooking) return
       setLoading(true)
       setError(null)
-      setMemo(null)
-      setReport(null)
-      setHistory([])
       try {
-        if (selectedBooking.conversation_id) {
-          const [memoRes, reportRes] = await Promise.all([
-            getConsultationMemo(selectedBooking.conversation_id),
-            getConversationReport(selectedBooking.conversation_id),
-          ])
-          setMemo(memoRes)
-          setReport(reportRes)
-        }
+        let activeConversationId: string | null = selectedBooking.conversation_id ?? null
+        let conversations: ConversationSummary[] = []
+
         if (selectedBooking.user_id) {
-          const convs = await getConversations(selectedBooking.user_id, 5, 0)
-          setHistory(convs)
+          conversations = await getConversations(selectedBooking.user_id, 5, 0)
+          setHistory(conversations)
+        }
+
+        if (!activeConversationId && conversations.length > 0) {
+          activeConversationId = conversations[0].id
+          setDerivedConversationId(conversations[0].id)
+        } else {
+          setDerivedConversationId(null)
+        }
+
+        if (activeConversationId) {
+          const cachedMemo = memoCache.current[activeConversationId]
+          const cachedReport = reportCache.current[activeConversationId]
+          if (cachedMemo) setMemo(cachedMemo)
+          if (cachedReport) setReport(cachedReport)
+
+          if (!cachedMemo || !cachedReport) {
+            const [memoRes, reportRes] = await Promise.all([
+              cachedMemo ? Promise.resolve(cachedMemo) : getConsultationMemo(activeConversationId),
+              cachedReport ? Promise.resolve(cachedReport) : getConversationReport(activeConversationId),
+            ])
+            memoCache.current[activeConversationId] = memoRes
+            reportCache.current[activeConversationId] = reportRes
+            persistCaches()
+            setMemo(memoRes)
+            setReport(reportRes)
+          }
         }
       } catch (err) {
         console.error(err)
@@ -191,7 +256,7 @@ export function BookingDashboard({ bookings, expertId }: Props) {
       }
     }
     fetchDetail()
-  }, [selectedBooking])
+  }, [selectedBooking, persistCaches])
 
   useEffect(() => {
     const fetchSimilar = async () => {
@@ -317,7 +382,9 @@ export function BookingDashboard({ bookings, expertId }: Props) {
                   key={iso + date.getDate()}
                   type="button"
                   onClick={() => {
+                    setSelectedDate(iso)
                     if (dayBookings.length > 0) setSelectedId(dayBookings[0].id)
+                    else setSelectedId(null)
                   }}
                   className={`min-h-[76px] sm:min-h-[88px] rounded-2xl border px-1.5 py-2 flex flex-col items-center justify-center gap-1 text-center transition ${
                     isCurrentMonth ? "bg-white border-slate-200" : "bg-slate-50 border-slate-100 text-slate-400"
@@ -359,12 +426,14 @@ export function BookingDashboard({ bookings, expertId }: Props) {
             <Notebook className="h-4 w-4 text-[#13274B]" />
             <div>
               <p className="text-xs text-slate-500">当日アジェンダ</p>
-              <p className="text-sm font-semibold text-slate-800">{selectedBooking ? formatDate(selectedBooking.date) : ""} の予約</p>
+              <p className="text-sm font-semibold text-slate-800">
+                {selectedDate ? `${formatDate(selectedDate)} の予約` : "日付を選択してください"}
+              </p>
             </div>
           </div>
           <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
             {days
-              .filter((d) => d.iso === (selectedBooking?.date ?? ""))
+              .filter((d) => (selectedDate ? d.iso === selectedDate : false))
               .flatMap((d) => d.bookings)
               .map((b) => {
                 const badgeClass = statusClass[b.status] ?? "bg-slate-50 border-slate-200 text-slate-600"
@@ -394,10 +463,11 @@ export function BookingDashboard({ bookings, expertId }: Props) {
                   </button>
                 )
               })}
-            {selectedBooking &&
-              days.filter((d) => d.iso === selectedBooking.date).every((d) => d.bookings.length === 0) && (
+            {selectedDate &&
+              days.filter((d) => d.iso === selectedDate).every((d) => d.bookings.length === 0) && (
                 <p className="text-xs text-slate-500">該当日の予約はありません</p>
               )}
+            {!selectedDate && <p className="text-xs text-slate-500">日付を選択してください</p>}
           </div>
         </div>
       </div>
@@ -480,24 +550,32 @@ export function BookingDashboard({ bookings, expertId }: Props) {
           {loading && <p className="text-xs text-slate-500">読み込み中...</p>}
           {error && <p className="text-xs text-rose-600">{error}</p>}
           {!selectedBooking && <p className="text-sm text-slate-500">予約を選択してください。</p>}
-          {selectedBooking && !selectedBooking.conversation_id && !loading && !error && (
-            <p className="text-sm text-slate-500">会話履歴が未紐付けです。予約詳細から conversation_id を設定してください。</p>
+          {selectedBooking && !selectedBooking.conversation_id && !loading && !error && !derivedConversationId && (
+            <p className="text-sm text-slate-500">
+              会話履歴が未紐付けです。予約詳細から conversation_id を設定してください。
+            </p>
+          )}
+          {derivedConversationId && selectedBooking && !selectedBooking.conversation_id && (
+            <p className="text-[11px] text-slate-500">
+              この予約に紐付いた会話IDがないため、最新の会話（{derivedConversationId.slice(0, 6)}…）を仮表示しています。
+              予約詳細から conversation_id を設定すると固定されます。
+            </p>
           )}
           {memo && (
             <div className="space-y-2">
               <p className="text-xs text-slate-500">重要ポイント</p>
               <div className="grid gap-2">
-                {memo.current_points.map((p, idx) => (
+                {memoPoints.map((p, idx) => (
                   <div key={idx} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
                     {p}
                   </div>
                 ))}
               </div>
-              {memo.important_points.length > 0 && (
+              {memoImportantPoints.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs text-slate-500">相談員が押さえるべき点</p>
                   <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-                    {memo.important_points.map((p, idx) => (
+                    {memoImportantPoints.map((p, idx) => (
                       <li key={idx}>{p}</li>
                     ))}
                   </ul>
@@ -510,16 +588,16 @@ export function BookingDashboard({ bookings, expertId }: Props) {
               <div>
                 <p className="text-xs text-slate-500">診断サマリ</p>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-                  {report.summary.map((s, idx) => (
+                  {summaryItems.map((s, idx) => (
                     <li key={idx}>{s}</li>
                   ))}
                 </ul>
               </div>
-              {report.key_topics?.length ? (
+              {keyTopicItems.length ? (
                 <div>
                   <p className="text-xs text-slate-500">重要トピック</p>
                   <div className="flex flex-wrap gap-2">
-                    {report.key_topics.map((t, idx) => (
+                    {keyTopicItems.map((t, idx) => (
                       <span key={idx} className="rounded-full bg-slate-100 text-slate-700 px-3 py-1 text-[12px] font-semibold">
                         {t}
                       </span>
@@ -527,11 +605,11 @@ export function BookingDashboard({ bookings, expertId }: Props) {
                   </div>
                 </div>
               ) : null}
-              {report.homework.length > 0 && (
+              {homeworkItems.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs text-slate-500">宿題</p>
                   <ul className="space-y-1 text-sm text-slate-700">
-                    {report.homework.map((h) => (
+                    {homeworkItems.map((h) => (
                       <li key={h.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <div className="font-semibold">{h.title}</div>
                         {h.detail && <p className="text-xs text-slate-600 mt-1">{h.detail}</p>}
@@ -588,12 +666,20 @@ export function BookingDashboard({ bookings, expertId }: Props) {
           )}
           <div className="space-y-2">
             {history.map((c) => (
-              <div key={c.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <div key={c.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm space-y-1">
+                <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{c.date}</span>
                   <span className="font-semibold text-slate-700">{c.id.slice(0, 6)}</span>
                 </div>
-                <p className="font-semibold text-slate-800">{c.title}</p>
+                <p className="font-semibold text-slate-800">{cleanChoicePrefix(c.title)}</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <Link
+                    href={`/admin/conversations/${c.id}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-[#13274B] hover:bg-slate-50"
+                  >
+                    会話ログ（管理）
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

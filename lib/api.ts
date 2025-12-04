@@ -339,7 +339,14 @@ export type ConversationReport = {
 export async function getConversationReport(conversationId: string): Promise<ConversationReport> {
   const res = await fetch(`${API_BASE_URL}/api/report/${conversationId}`, { cache: "no-store" })
   if (!res.ok) throw new Error(`conversation report fetch failed: ${res.status}`)
-  return res.json()
+  const data = await res.json()
+  if (data && typeof data === "object" && "exists" in data) {
+    if (data.exists === false || !data.report) {
+      throw new Error("conversation report not found")
+    }
+    return data.report as ConversationReport
+  }
+  return data as ConversationReport
 }
 
 export type CompanyProfile = {
@@ -376,6 +383,7 @@ export async function saveCompanyProfile(userId: string, payload: CompanyProfile
 export type ConsultationBookingPayload = {
   expert_id: string
   user_id?: string
+  conversation_id?: string
   date: string
   time_slot: string
   channel: "online" | "in-person"
@@ -390,6 +398,7 @@ export type ConsultationBookingPayload = {
 export type ConsultationBookingResponse = {
   booking_id: string
   expert_id: string
+  conversation_id?: string | null
   date: string
   time_slot: string
   channel: string

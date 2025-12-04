@@ -133,6 +133,13 @@ function ChatPageContent() {
   }, [messages, loading])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    if (conversationId) {
+      window.localStorage.setItem("lastConversationId", conversationId)
+    }
+  }, [conversationId])
+
+  useEffect(() => {
     const load = async () => {
       if (!initialConversationId || reset) {
         setBootstrapLoading(false)
