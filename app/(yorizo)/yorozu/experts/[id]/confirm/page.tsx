@@ -6,10 +6,13 @@ import { Loader2, MapPin, Star } from "lucide-react"
 import {
   createConsultationBooking,
   getExperts,
+  getConversations,
   type ConsultationBookingPayload,
   type ConsultationBookingResponse,
   type Expert,
 } from "@/lib/api"
+
+const USER_ID = "demo-user"
 
 export default function ConfirmPage() {
   const params = useParams<{ id: string }>()
@@ -19,6 +22,7 @@ export default function ConfirmPage() {
   const date = searchParams.get("date") || ""
   const time = searchParams.get("time") || ""
   const channel = (searchParams.get("channel") as "online" | "in-person" | null) ?? "online"
+  const [conversationId, setConversationId] = useState(searchParams.get("conversationId") || "")
 
   const [expert, setExpert] = useState<Expert | null>(null)
   const [form, setForm] = useState({
@@ -41,6 +45,33 @@ export default function ConfirmPage() {
     fetchExpert()
   }, [expertId])
 
+  useEffect(() => {
+    if (conversationId) return
+    if (typeof window === "undefined") return
+    const latest = window.localStorage.getItem("lastConversationId")
+    if (latest) {
+      setConversationId(latest)
+    }
+  }, [conversationId])
+
+  useEffect(() => {
+    const loadLatestConversation = async () => {
+      if (conversationId) return
+      try {
+        const convs = await getConversations(USER_ID, 1, 0)
+        if (convs.length > 0) {
+          setConversationId(convs[0].id)
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem("lastConversationId", convs[0].id)
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch latest conversation for booking", err)
+      }
+    }
+    void loadLatestConversation()
+  }, [conversationId])
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!expertId || !date || !time) return
@@ -54,6 +85,7 @@ export default function ConfirmPage() {
       const payload: ConsultationBookingPayload = {
         expert_id: expertId,
         user_id: "demo-user",
+        conversation_id: conversationId || undefined,
         date,
         time_slot: time,
         channel,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Tag, Loader2, MessageSquare, ChevronRight } from "lucide-react"
 import { getExperts, type Expert } from "@/lib/api"
 
@@ -9,6 +9,7 @@ const filters = ["すべて", "売上", "人材", "資金繰り", "業務改善"
 
 export default function YorozuExpertsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [experts, setExperts] = useState<Expert[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +29,21 @@ export default function YorozuExpertsPage() {
     }
     fetchExperts()
   }, [])
+
+  const getConversationId = () => {
+    const fromUrl = searchParams.get("conversationId")
+    if (fromUrl) {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("lastConversationId", fromUrl)
+      }
+      return fromUrl
+    }
+    if (typeof window !== "undefined") {
+      const latest = window.localStorage.getItem("lastConversationId")
+      if (latest) return latest
+    }
+    return null
+  }
 
   const filteredExperts = useMemo(() => {
     if (activeFilter === "すべて") return experts
@@ -75,11 +91,11 @@ export default function YorozuExpertsPage() {
             className="yori-card p-5 space-y-3 border border-[var(--yori-outline)]"
           >
             <div className="flex items-start gap-3">
-              <div className="h-12 w-12 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] flex items-center justify-center text-sm font-semibold text-[var(--yori-ink-strong)]">
-                {expert.name.slice(0, 2)}
-              </div>
-              <div className="flex-1 space-y-1">
-                <p className="text-base font-semibold text-[var(--yori-ink-strong)]">{expert.name}</p>
+            <div className="h-12 w-12 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] flex items-center justify-center text-sm font-semibold text-[var(--yori-ink-strong)]">
+              {expert.name.slice(0, 2)}
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-base font-semibold text-[var(--yori-ink-strong)]">{expert.name}</p>
                 {expert.organization && (
                   <p className="text-xs font-semibold text-[var(--yori-ink)]">{expert.organization}</p>
                 )}
@@ -99,7 +115,11 @@ export default function YorozuExpertsPage() {
             </div>
             <button
               type="button"
-              onClick={() => router.push(`/yorozu/experts/${expert.id}/schedule`)}
+              onClick={() => {
+                const conversationId = getConversationId()
+                const qs = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ""
+                router.push(`/yorozu/experts/${expert.id}/schedule${qs}`)
+              }}
               className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
             >
               相談を申し込む

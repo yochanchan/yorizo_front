@@ -1,14 +1,16 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { CalendarDays, Clock, Loader2, MapPin, Star } from "lucide-react"
 import { getExpertAvailability, getExperts, type AvailabilityDay, type Expert } from "@/lib/api"
 
 export default function SchedulePage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const expertId = params?.id
+  const [conversationId, setConversationId] = useState<string | null>(searchParams.get("conversationId"))
 
   const [expert, setExpert] = useState<Expert | null>(null)
   const [availability, setAvailability] = useState<AvailabilityDay[]>([])
@@ -38,6 +40,15 @@ export default function SchedulePage() {
     fetchData()
   }, [expertId])
 
+  useEffect(() => {
+    if (conversationId) return
+    if (typeof window === "undefined") return
+    const latest = window.localStorage.getItem("lastConversationId")
+    if (latest) {
+      setConversationId(latest)
+    }
+  }, [conversationId])
+
   const slotsForSelectedDate = useMemo(() => {
     if (!selectedDate) return []
     const day = availability.find((d) => d.date === selectedDate)
@@ -51,11 +62,15 @@ export default function SchedulePage() {
 
   const handleConfirm = () => {
     if (!expertId || !selectedDate || !selectedSlot) return
-    router.push(
-      `/yorozu/experts/${expertId}/confirm?date=${encodeURIComponent(selectedDate)}&time=${encodeURIComponent(
-        selectedSlot,
-      )}&channel=${channel}`,
-    )
+    const qs = new URLSearchParams({
+      date: selectedDate,
+      time: selectedSlot,
+      channel,
+    })
+    if (conversationId) {
+      qs.set("conversationId", conversationId)
+    }
+    router.push(`/yorozu/experts/${expertId}/confirm?${qs.toString()}`)
   }
 
   return (

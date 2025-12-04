@@ -36,6 +36,7 @@ export default function AdminBookingDetailPage() {
   const [note, setNote] = useState<string>("")
   const [meetingUrl, setMeetingUrl] = useState<string>("")
   const [lineContact, setLineContact] = useState<string>("")
+  const [conversationId, setConversationId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +54,7 @@ export default function AdminBookingDetailPage() {
         setNote(data.note ?? "")
         setMeetingUrl(data.meeting_url ?? "")
         setLineContact(data.line_contact ?? "")
+        setConversationId(data.conversation_id ?? "")
       } catch (err) {
         console.error(err)
         setError("予約情報の取得に失敗しました")
@@ -74,6 +76,7 @@ export default function AdminBookingDetailPage() {
         note: note || null,
         meeting_url: meetingUrl || null,
         line_contact: lineContact || null,
+        conversation_id: conversationId || null,
       })
       setBooking(updated)
       setMessage("更新しました")
@@ -188,6 +191,18 @@ export default function AdminBookingDetailPage() {
                 />
               </div>
               <div className="space-y-2">
+                <label className="text-xs text-slate-600">conversation_id（カルテ紐付け）</label>
+                <input
+                  value={conversationId}
+                  onChange={(e) => setConversationId(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="チャットの conversation_id"
+                />
+                <p className="text-[11px] text-slate-500">
+                  チャットの conversation_id を設定するとダッシュボードにカルテが表示されます。
+                </p>
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs text-slate-600">オンラインURL（Zoom/Teams など）</label>
                 <input
                   value={meetingUrl}
@@ -205,6 +220,15 @@ export default function AdminBookingDetailPage() {
                   placeholder="LINE ID や招待リンク"
                 />
               </div>
+              {conversationId && (
+                <Link
+                  href={`/admin/conversations/${conversationId}`}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-[#13274B] underline underline-offset-4"
+                >
+                  会話を開く（管理者ビュー）
+                  <LayoutDashboard className="h-3.5 w-3.5" />
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleSave}

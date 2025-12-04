@@ -65,6 +65,10 @@ export default function ConsultationMemoPage() {
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [draftSaved, setDraftSaved] = useState<string | null>(null)
+  const goToBooking = () => {
+    const qs = conversationId ? `?conversationId=${conversationId}` : ""
+    router.push(`/yorozu${qs}`)
+  }
 
   const [recentConcerns, setRecentConcerns] = useState("")
   const [currentState, setCurrentState] = useState("")
@@ -426,7 +430,7 @@ export default function ConsultationMemoPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.push("/yorozu")}
+              onClick={goToBooking}
               className="btn-primary w-full px-5 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
             >
               よろず支援に相談する
