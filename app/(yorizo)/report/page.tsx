@@ -1,8 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, RefreshCcw } from "lucide-react"
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react"
 
 import { CompanyInfoSummaryCard } from "@/components/company/CompanyInfoSummaryCard"
 import { getCompanyReport, type CompanyReport } from "@/lib/api"
@@ -12,7 +12,6 @@ const COMPANY_ID = "1"
 const COMPANY_PROFILE_ID = "demo-user"
 
 const AXIS_COLORS = ["#f97316", "#3b82f6", "#6b7280"]
-
 const RADAR_AXES = ["売上持続性", "収益性", "生産性", "健全性", "効率性", "安全性"]
 
 type Point = { x: number; y: number }
@@ -43,7 +42,9 @@ function RadarChart({ periods }: { periods: CompanyReport["radar"]["periods"] })
     const points = RADAR_AXES.map((_, idx) => {
       const r = (level / 5) * radius
       const angle = -Math.PI / 2 + idx * angleStep
-      return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`
+      const x = center + r * Math.cos(angle)
+      const y = center + r * Math.sin(angle)
+      return `${x},${y}`
     }).join(" ")
     return points
   })
@@ -69,12 +70,12 @@ function RadarChart({ periods }: { periods: CompanyReport["radar"]["periods"] })
           )
         })}
       </g>
-          {periods.map((period, idx) => (
-            <polygon
-              key={period.label}
-              points={buildPoints(period.scores, size)}
-              fill={idx === 0 ? `${AXIS_COLORS[idx]}20` : "none"}
-              stroke={AXIS_COLORS[idx]}
+      {periods.map((period, idx) => (
+        <polygon
+          key={period.label}
+          points={buildPoints(period.scores, size)}
+          fill={idx === 0 ? `${AXIS_COLORS[idx]}20` : "none"}
+          stroke={AXIS_COLORS[idx % AXIS_COLORS.length]}
           strokeWidth={2}
           strokeDasharray={idx === 0 ? "0" : "6 4"}
         />
@@ -85,14 +86,7 @@ function RadarChart({ periods }: { periods: CompanyReport["radar"]["periods"] })
         const x = center + labelRadius * Math.cos(angle)
         const y = center + labelRadius * Math.sin(angle)
         return (
-          <text
-            key={label}
-            x={x}
-            y={y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="text-[11px] fill-[var(--yori-ink-strong)]"
-          >
+          <text key={label} x={x} y={y} textAnchor="middle" dominantBaseline="middle" className="text-[11px] fill-[var(--yori-ink-strong)]">
             {label}
           </text>
         )
@@ -120,10 +114,10 @@ function ValueTable({ periods }: { periods: CompanyReport["radar"]["periods"] })
           {RADAR_AXES.map((axis, rowIdx) => (
             <tr key={axis} className="border-t border-[var(--yori-outline)]">
               <td className="px-3 py-2 font-semibold text-[var(--yori-ink-strong)]">{axis}</td>
-              {periods.map((p, colIdx) => (
-                <td key={`${axis}-${colIdx}`} className="px-3 py-2 text-[var(--yori-ink)]">
+              {periods.map((p) => (
+                <td key={`${axis}-${p.label}`} className="px-3 py-2 text-[var(--yori-ink)]">
                   {p.raw_values?.[rowIdx] !== undefined && p.raw_values?.[rowIdx] !== null
-                    ? p.raw_values[rowIdx].toLocaleString("ja-JP")
+                    ? p.raw_values[rowIdx]?.toLocaleString("ja-JP")
                     : "-"}
                 </td>
               ))}
@@ -138,16 +132,12 @@ function ValueTable({ periods }: { periods: CompanyReport["radar"]["periods"] })
 function QualTable({ title, rows }: { title: string; rows: Record<string, string> }) {
   return (
     <div className="rounded-xl border border-[var(--yori-outline)] bg-white">
-      <div className="border-b border-[var(--yori-outline)] px-3 py-2 text-xs font-semibold text-[var(--yori-ink-soft)]">
-        {title}
-      </div>
+      <div className="border-b border-[var(--yori-outline)] px-3 py-2 text-xs font-semibold text-[var(--yori-ink-soft)]">{title}</div>
       <div className="divide-y divide-[var(--yori-outline)]">
         {Object.entries(rows).map(([label, value]) => (
           <div key={label} className="grid grid-cols-[180px,1fr] items-start">
-            <div className="bg-[var(--yori-secondary)] px-3 py-3 text-[11px] font-semibold text-[var(--yori-ink-strong)]">
-              {label}
-            </div>
-            <div className="px-3 py-3 text-sm text-[var(--yori-ink)]">{value || "—"}</div>
+            <div className="bg-[var(--yori-secondary)] px-3 py-3 text-[11px] font-semibold text-[var(--yori-ink-strong)]">{label}</div>
+            <div className="px-3 py-3 text-sm text-[var(--yori-ink)]">{value || "―"}</div>
           </div>
         ))}
       </div>
@@ -155,15 +145,7 @@ function QualTable({ title, rows }: { title: string; rows: Record<string, string
   )
 }
 
-function ThreeBlock({
-  current,
-  future,
-  action,
-}: {
-  current: string
-  future: string
-  action: string
-}) {
+function ThreeBlock({ current, future, action }: { current: string; future: string; action: string }) {
   const items = [
     { label: "現状認識", value: current },
     { label: "将来目標", value: future },
@@ -174,12 +156,83 @@ function ThreeBlock({
       {items.map((item) => (
         <div key={item.label} className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 space-y-1">
           <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">{item.label}</p>
-          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap">
-            {item.value || "—"}
-          </p>
+          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap">{item.value || "―"}</p>
         </div>
       ))}
     </div>
+  )
+}
+
+function SnapshotSection({ state, strengths, weaknesses }: { state: string; strengths: string[]; weaknesses: string[] }) {
+  return (
+    <section className="yori-card p-5 md:p-6 space-y-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--yori-ink-strong)]">
+        <Sparkles className="h-4 w-4" /> 現状スナップショット
+      </div>
+      <p className="text-xs text-[var(--yori-ink-soft)]">ローカルベンチマーク指標とチャット内容から、強みとリスクを一枚で把握できます。</p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--yori-outline)] bg-white p-4">
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">いまの状態メモ</p>
+          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap mt-1">{state || "Yorizoが整理中です。"}</p>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">強み</p>
+            {strengths.length > 0 ? (
+              <ul className="list-disc list-inside text-sm text-[var(--yori-ink)] space-y-1">
+                {strengths.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--yori-ink)]">まだ抽出されていません。</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">リスク・弱み</p>
+            {weaknesses.length > 0 ? (
+              <ul className="list-disc list-inside text-sm text-[var(--yori-ink)] space-y-1">
+                {weaknesses.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--yori-ink)]">まだ抽出されていません。</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FuturePlanningSection({ desired, gap, questions }: { desired: string; gap: string; questions: string[] }) {
+  return (
+    <section className="yori-card p-5 md:p-6 space-y-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--yori-ink-strong)]">
+        <Sparkles className="h-4 w-4" /> これからのイメージ
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--yori-outline)] bg-white p-4 space-y-2">
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">目指す姿</p>
+          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap">{desired || "将来像はこれから整理します。"}</p>
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)] pt-2">現状とのギャップ</p>
+          <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap">{gap || "ギャップの整理はこれからです。"}</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--yori-outline)] bg-white p-4 space-y-2">
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">考えるための問い</p>
+          {questions.length > 0 ? (
+            <ul className="list-disc list-inside text-sm text-[var(--yori-ink)] space-y-1">
+              {questions.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-[var(--yori-ink)]">Yorizoが問いを準備しています。</p>
+          )}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -205,22 +258,20 @@ export default function ReportPage() {
   }
 
   useEffect(() => {
-    fetchReport()
+    void fetchReport()
   }, [])
 
   const periods = useMemo(() => report?.radar?.periods ?? [], [report])
+  const snapshotStrengths = report?.snapshot_strengths ?? []
+  const snapshotWeaknesses = report?.snapshot_weaknesses ?? []
+  const thinkingQuestions = report?.thinking_questions ?? []
 
   return (
     <div className="flex flex-col gap-6">
       <header className="yori-card-muted p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            戻る
+          <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]">
+            <ArrowLeft className="h-4 w-4" /> 戻る
           </button>
           <button
             type="button"
@@ -233,10 +284,8 @@ export default function ReportPage() {
           </button>
         </div>
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">ローカルベンチマーク（レーダー）</h1>
-          <p className="text-sm text-[var(--yori-ink)]">
-            最新・前期・前々期の6指標で企業の状態を俯瞰します。
-          </p>
+          <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">イマココレポート</h1>
+          <p className="text-sm text-[var(--yori-ink)]">チャット・決算書・宿題・PDFをまとめた「いま」の鏡です。将来の一歩を考えるために活用してください。</p>
         </div>
       </header>
 
@@ -270,12 +319,9 @@ export default function ReportPage() {
             </div>
           </section>
 
-          <CompanyInfoSummaryCard
-            profile={profile}
-            company={report.company}
-            loading={loadingProfile}
-            onEdit={() => router.push("/company")}
-          />
+          <CompanyInfoSummaryCard profile={profile} company={report.company} loading={loadingProfile} onEdit={() => router.push("/company")} />
+
+          <SnapshotSection state={report.current_state} strengths={snapshotStrengths} weaknesses={snapshotWeaknesses} />
 
           <section className="yori-card p-5 md:p-6 space-y-4">
             <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">企業の特徴</p>
@@ -291,21 +337,17 @@ export default function ReportPage() {
             </div>
           </section>
 
+          <FuturePlanningSection desired={report.desired_image || ""} gap={report.gap_summary || ""} questions={thinkingQuestions} />
+
           <section className="yori-card p-5 md:p-6 space-y-3">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">現状認識 → 将来目標 → 対応策</p>
-            <ThreeBlock
-              current={report.current_state}
-              future={report.future_goal}
-              action={report.action_plan}
-            />
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">現状 → 将来 → 対応策</p>
+            <ThreeBlock current={report.current_state} future={report.future_goal} action={report.action_plan} />
           </section>
         </>
       )}
 
       {!report && !loading && !error && (
-        <div className="yori-card p-5 text-sm text-[var(--yori-ink-soft)]">
-          レポートがまだ生成されていません。更新ボタンから取得してください。
-        </div>
+        <div className="yori-card p-5 text-sm text-[var(--yori-ink-soft)]">レポートがまだ生成されていません。更新ボタンから取得してください。</div>
       )}
     </div>
   )

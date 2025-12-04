@@ -321,23 +321,31 @@ export type ReportHomework = {
   status?: "pending" | "in_progress" | "done" | null
 }
 
+export type ReportSelfAction = {
+  id: number
+  title: string
+  detail?: string | null
+  status: "pending" | "in_progress" | "done"
+  due_date?: string | null
+  updated_at?: string | null
+}
+
 export type ConversationReport = {
   id: string
   title: string
-  category?: string | null
-  created_at: string
   summary: string[]
-  financial_analysis: string[]
-  strengths: string[]
-  weaknesses: string[]
+  key_topics: string[]
   homework: ReportHomework[]
-  key_topics?: string[]
+  self_actions: ReportSelfAction[]
+  category?: string | null
+  created_at?: string
+  strengths?: string[]
+  weaknesses?: string[]
   for_expert?: string[]
-  local_benchmark?: LocalBenchmark | null
 }
 
 export async function getConversationReport(conversationId: string): Promise<ConversationReport> {
-  const res = await fetch(`${API_BASE_URL}/api/report/${conversationId}`, { cache: "no-store" })
+  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/report`, { cache: "no-store" })
   if (!res.ok) throw new Error(`conversation report fetch failed: ${res.status}`)
   return res.json()
 }
@@ -375,6 +383,11 @@ export type CompanyReport = {
   current_state: string
   future_goal: string
   action_plan: string
+  snapshot_strengths: string[]
+  snapshot_weaknesses: string[]
+  desired_image?: string | null
+  gap_summary?: string | null
+  thinking_questions: string[]
 }
 
 export async function getCompanyReport(companyId: string): Promise<CompanyReport> {
