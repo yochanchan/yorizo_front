@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, CalendarDays, Check, ChevronRight, FileText, FolderOpen, Loader2, RefreshCcw, Save } from "lucide-react"
+import {
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  FolderOpen,
+  Loader2,
+  RefreshCcw,
+  Save,
+} from "lucide-react"
 
 import {
   getConversationDetail,
@@ -15,6 +26,24 @@ import {
 import { cleanConversationTitle } from "@/lib/utils"
 
 const USER_ID = "demo-user"
+const LOCAL_STORAGE_PREFIX = "consultation-memo-"
+
+const STATUS_STYLES = {
+  pending: {
+    label: "未着手",
+    className: "bg-amber-50 text-amber-700 border border-amber-200",
+  },
+  in_progress: {
+    label: "進行中",
+    className: "bg-sky-50 text-sky-700 border border-sky-200",
+  },
+  done: {
+    label: "完了",
+    className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  },
+} as const
+
+type StatusKey = keyof typeof STATUS_STYLES
 
 type MemoDraft = {
   recentConcerns: string
@@ -50,9 +79,15 @@ function TextSection({ title, helper, placeholder, value, onChange }: TextSectio
   )
 }
 
+function StatusBadge({ status }: { status: StatusKey }) {
+  const style = STATUS_STYLES[status]
+  return <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${style.className}`}>{style.label}</span>
+}
+
 export default function ConsultationMemoPage() {
   const { conversationId } = useParams<{ conversationId: string }>()
   const router = useRouter()
+
   const [report, setReport] = useState<ConversationReport | null>(null)
   const [conversation, setConversation] = useState<ConversationDetail | null>(null)
   const [documents, setDocuments] = useState<DocumentItem[]>([])
@@ -60,7 +95,6 @@ export default function ConsultationMemoPage() {
   const [documentsError, setDocumentsError] = useState<string | null>(null)
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
 
-  const [notExists, setNotExists] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -76,7 +110,8 @@ export default function ConsultationMemoPage() {
   const [discussionPoints, setDiscussionPoints] = useState("")
   const [background, setBackground] = useState("")
 
-  // Conversation + report
+  const storageKey = useMemo(() => (conversationId ? `${LOCAL_STORAGE_PREFIX}${conversationId}` : null), [conversationId])
+
   useEffect(() => {
     if (!conversationId) return
     let mounted = true
@@ -85,19 +120,12 @@ export default function ConsultationMemoPage() {
       setLoading(true)
       setError(null)
       try {
-        const [reportEnvelope, conversationDetail] = await Promise.all([
+        const [reportData, conversationDetail] = await Promise.all([
           getConversationReport(conversationId),
           getConversationDetail(conversationId),
         ])
         if (!mounted) return
-
-        const responseReport = (reportEnvelope as any)?.report ?? reportEnvelope
-        if ((reportEnvelope as any)?.exists === false || !responseReport) {
-          setNotExists(true)
-          setReport(null)
-        } else {
-          setReport(responseReport as ConversationReport)
-        }
+        setReport(reportData)
         setConversation(conversationDetail)
       } catch (err) {
         console.error(err)
@@ -108,13 +136,12 @@ export default function ConsultationMemoPage() {
       }
     }
 
-    load()
+    void load()
     return () => {
       mounted = false
     }
   }, [conversationId, refreshKey])
 
-  // Documents for checkbox list
   useEffect(() => {
     let active = true
     const fetchDocs = async () => {
@@ -131,32 +158,30 @@ export default function ConsultationMemoPage() {
         if (active) setDocumentsLoading(false)
       }
     }
-    fetchDocs()
+    void fetchDocs()
     return () => {
       active = false
     }
   }, [])
 
-  // Restore local draft
   useEffect(() => {
-    if (!conversationId || typeof window === "undefined") return
-    const stored = localStorage.getItem(`consultation-memo-${conversationId}`)
+    if (!storageKey || typeof window === "undefined") return
+    const stored = window.localStorage.getItem(storageKey)
     if (!stored) return
     try {
       const parsed = JSON.parse(stored) as MemoDraft
-      setRecentConcerns(parsed.recentConcerns || "")
-      setCurrentState(parsed.currentState || "")
-      setIdealState(parsed.idealState || "")
-      setDiscussionPoints(parsed.discussionPoints || "")
-      setBackground(parsed.background || "")
-      setSelectedDocumentIds(parsed.documentIds || [])
+      setRecentConcerns(parsed.recentConcerns ?? "")
+      setCurrentState(parsed.currentState ?? "")
+      setIdealState(parsed.idealState ?? "")
+      setDiscussionPoints(parsed.discussionPoints ?? "")
+      setBackground(parsed.background ?? "")
+      setSelectedDocumentIds(parsed.documentIds ?? [])
       setDraftSaved("ローカルに保存した内容を読み込みました。")
     } catch {
-      // ignore parse errors
+      // ignore corrupted drafts
     }
-  }, [conversationId])
+  }, [storageKey])
 
-  // Prefill from report data (only if the field is empty)
   useEffect(() => {
     if (!report) return
     const joinList = (items?: string[]) => (items && items.length > 0 ? items.join("\n") : "")
@@ -169,7 +194,7 @@ export default function ConsultationMemoPage() {
     if (!background.trim() && report.weaknesses?.length) {
       setBackground(joinList(report.weaknesses))
     }
-  }, [report, recentConcerns, currentState, discussionPoints, idealState, background])
+  }, [report])
 
   const memoTitle = useMemo(() => {
     const title = conversation?.title ?? report?.title ?? ""
@@ -177,15 +202,17 @@ export default function ConsultationMemoPage() {
   }, [conversation, report])
 
   const memoDate = useMemo(() => {
-    const raw = conversation?.ended_at ?? conversation?.started_at ?? report?.created_at
+    const raw = conversation?.started_at ?? report?.created_at
     if (!raw) return ""
     return new Date(raw).toLocaleDateString("ja-JP")
   }, [conversation, report])
 
+  const selfActions = report?.self_actions ?? []
+
   const handleRefresh = () => setRefreshKey((prev) => prev + 1)
 
   const handleSaveDraft = () => {
-    if (!conversationId || typeof window === "undefined") return
+    if (!storageKey || typeof window === "undefined") return
     const payload: MemoDraft = {
       recentConcerns,
       currentState,
@@ -195,11 +222,11 @@ export default function ConsultationMemoPage() {
       documentIds: selectedDocumentIds,
     }
     try {
-      localStorage.setItem(`consultation-memo-${conversationId}`, JSON.stringify(payload))
-      setDraftSaved("メモを保存しました（ローカル保存）。")
+      window.localStorage.setItem(storageKey, JSON.stringify(payload))
+      setDraftSaved("メモを保存しました（ブラウザ内に保存）")
     } catch (err) {
       console.error(err)
-      setError("ローカル保存に失敗しました。ブラウザのストレージ設定を確認してください。")
+      setError("ローカル保存に失敗しました。ブラウザの設定をご確認ください。")
     }
   }
 
@@ -243,10 +270,10 @@ export default function ConsultationMemoPage() {
 
       {error && <p className="text-xs text-rose-600">{error}</p>}
 
-      {notExists && !loading && (
+      {!loading && !report && (
         <div className="yori-card p-5 space-y-2">
-          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">相談メモはまだ作成されていません。</p>
-          <p className="text-sm text-[var(--yori-ink)]">チャットを進めて、整理が完了したら相談メモが確認できます。</p>
+          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">まだ相談メモがありません</p>
+          <p className="text-sm text-[var(--yori-ink)]">まずはYorizoとチャットをしてモヤモヤを言語化しましょう。</p>
           <button
             type="button"
             onClick={() => router.push(`/chat?conversationId=${conversationId ?? ""}`)}
@@ -275,53 +302,77 @@ export default function ConsultationMemoPage() {
               </div>
             </div>
             <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
-              相談窓口に行く前に、経営のモヤモヤや伝えたい情報を整理しておくためのメモです。編集内容はブラウザ内に保存されます。
+              ここに書いた内容は、よろず支援や商工会など人に相談するときの“台本”になります。必要に応じて自由に書き換えてください。
             </p>
           </header>
+
+          <section className="yori-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-[var(--yori-ink-strong)]" />
+              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">自分で取り組むこと（自己解決アクション）</p>
+            </div>
+            {selfActions.length > 0 ? (
+              <div className="space-y-3">
+                {selfActions.map((action) => (
+                  <div key={action.id} className="rounded-2xl border border-[var(--yori-outline)] bg-white p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{action.title}</p>
+                      <StatusBadge status={(action.status || "pending") as StatusKey} />
+                    </div>
+                    {action.detail && <p className="text-sm text-[var(--yori-ink)] leading-relaxed whitespace-pre-wrap">{action.detail}</p>}
+                    <div className="text-[11px] text-[var(--yori-ink-soft)] flex items-center gap-2">
+                      {action.due_date && <span>期限: {new Date(action.due_date).toLocaleDateString("ja-JP")}</span>}
+                      {action.updated_at && <span>更新: {new Date(action.updated_at).toLocaleDateString("ja-JP")}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--yori-ink)]">まだ宿題の登録がありません。チャットの中で決まった取り組みがここに表示されます。</p>
+            )}
+          </section>
 
           <div className="grid gap-4">
             <TextSection
               title="最近の気になること"
-              helper="売上に波がある、先々の資金繰りが不安、など今のモヤモヤを書き出してください。"
-              placeholder="例）売上はあるのに手元にお金が残らない感じがする。仕入れが増えていて先の支払いが心配。"
+              helper="今のモヤモヤをそのまま書いてください。"
+              placeholder="例）売上に山谷があり、仕入の支払いが重なる月に資金繰りが厳しい。"
               value={recentConcerns}
               onChange={setRecentConcerns}
             />
             <TextSection
-              title="いまの状況（現状）"
-              helper="数字・事実・これまでやってきたことなどを整理してください。"
-              placeholder="例）ここ半年は来店数が前年同期比90%ほど。新メニューを出したが原価が高い。"
+              title="今の状況・数字のメモ"
+              helper="数字・事実・すでに取り組んでいることなどをまとめましょう。"
+              placeholder="例）昨年比で来店数が80%程度。新メニューを始めたが原価が高い。"
               value={currentState}
               onChange={setCurrentState}
             />
             <TextSection
               title="本当はこうなりたい（理想の姿）"
-              helper="1〜3年くらい先に、どうなっていたらうれしいかを書いてください。"
-              placeholder="例）月次で安定して黒字を出し、スタッフが安心して働ける環境にしたい。"
+              helper="1〜2年後にどうなっていたいかを言葉にしてください。"
+              placeholder="例）月次で安定して黒字を出し、スタッフが安心して働けるチームにしたい。"
               value={idealState}
               onChange={setIdealState}
             />
             <TextSection
               title="今回、相談したいこと・一緒に決めたいこと"
-              helper="箇条書きで構いません。迷っているポイントや決めたいことを書いてください。"
+              helper="箇条書きで構いません。迷っていることを書き出しましょう。"
               placeholder="例）価格改定をするかどうか。採用をいつから始めるか。"
               value={discussionPoints}
               onChange={setDiscussionPoints}
             />
             <TextSection
-              title="相談員に事前に知っておいてほしいこと"
-              helper="家族構成やこれまで受けたアドバイスなど、背景情報があれば共有してください。"
-              placeholder="例）以前別の窓口で棚卸しの方法を教わった。家族が手伝っている。"
+              title="相談前に知っておいてほしい背景"
+              helper="家族構成やこれまで受けたアドバイスなど、共有したいことをどうぞ。"
+              placeholder="例）以前別の窓口で棚卸の方法を教わった。家族が手伝っている。"
               value={background}
               onChange={setBackground}
             />
 
             <div className="yori-card p-4 space-y-3">
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">一緒に見てほしい資料</p>
-                <p className="text-xs text-[var(--yori-ink-soft)]">
-                  Yorizoにアップ済みの資料を選べます。チェックを付けた資料のIDを相談メモにひもづけます。
-                </p>
+                <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">一緒に見せたい資料</p>
+                <p className="text-xs text-[var(--yori-ink-soft)]">Yorizoにアップロード済みの資料を選択できます。相談相手に見せたい資料をチェックしてください。</p>
               </div>
               {documentsLoading && (
                 <div className="flex items-center gap-2 text-xs text-[var(--yori-ink-soft)]">
@@ -331,14 +382,11 @@ export default function ConsultationMemoPage() {
               )}
               {documentsError && <p className="text-xs text-rose-600">{documentsError}</p>}
               {!documentsLoading && documents.length === 0 && (
-                <p className="text-sm text-[var(--yori-ink)]">まだ資料がアップされていません。</p>
+                <p className="text-sm text-[var(--yori-ink)]">まだ資料がアップロードされていません。</p>
               )}
               <div className="space-y-2">
                 {documents.map((doc) => (
-                  <label
-                    key={doc.id}
-                    className="flex items-center gap-3 rounded-2xl border border-[var(--yori-outline)] bg-white/80 px-3 py-2"
-                  >
+                  <label key={doc.id} className="flex items-center gap-3 rounded-2xl border border-[var(--yori-outline)] bg-white/80 px-3 py-2">
                     <input
                       type="checkbox"
                       checked={selectedDocumentIds.includes(doc.id)}
@@ -362,9 +410,7 @@ export default function ConsultationMemoPage() {
               <Save className="h-4 w-4" />
               <span>ここまでのメモを保存</span>
             </div>
-            <p className="text-xs text-[var(--yori-ink-soft)]">
-              ブラウザに一時保存します。別端末には同期されません。
-            </p>
+            <p className="text-xs text-[var(--yori-ink-soft)]">ブラウザに一時保存します。別端末には同期されません。</p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -381,7 +427,7 @@ export default function ConsultationMemoPage() {
           <div className="yori-card p-4 space-y-3">
             <div className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5 text-[var(--yori-ink-strong)]" />
-              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizoの整理（参考）</p>
+              <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizoの整理メモ</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="space-y-1">
@@ -393,11 +439,11 @@ export default function ConsultationMemoPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-[var(--yori-ink)] leading-relaxed">相談内容は準備中です。</p>
+                  <p className="text-sm text-[var(--yori-ink)]">まだ整理中です。</p>
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">今回の重要ポイント</p>
+                <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">今回の論点</p>
                 {keyTopics.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1 text-sm text-[var(--yori-ink)]">
                     {keyTopics.map((topic) => (
@@ -405,7 +451,7 @@ export default function ConsultationMemoPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-[var(--yori-ink)]">ポイントはまだありません。</p>
+                  <p className="text-sm text-[var(--yori-ink)]">まだ論点は抽出されていません。</p>
                 )}
               </div>
             </div>
@@ -418,16 +464,14 @@ export default function ConsultationMemoPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-[var(--yori-ink)]">まだ整理されていません。</p>
+                <p className="text-sm text-[var(--yori-ink)]">必要に応じて入力してください。</p>
               )}
             </div>
           </div>
 
           <div className="yori-card p-5 space-y-3">
             <p className="text-base font-semibold text-[var(--yori-ink-strong)]">よろず支援に相談する</p>
-            <p className="text-sm text-[var(--yori-ink)]">
-              まとまったメモを持って、相談員と次の一歩を一緒に考えてみましょう。
-            </p>
+            <p className="text-sm text-[var(--yori-ink)]">まとまったメモを持って、支援機関と次の一歩を一緒に考えましょう。</p>
             <button
               type="button"
               onClick={goToBooking}

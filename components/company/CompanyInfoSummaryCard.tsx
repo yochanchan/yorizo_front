@@ -5,11 +5,17 @@ import type { CompanyProfile } from "@/lib/api"
 
 type Props = {
   profile: CompanyProfile | null
+  company?: {
+    name?: string | null
+    industry?: string | null
+    employees?: number | null
+    annual_revenue_range?: string | null
+  }
   loading?: boolean
   onEdit?: () => void
 }
 
-export function CompanyInfoSummaryCard({ profile, loading, onEdit }: Props) {
+export function CompanyInfoSummaryCard({ profile, company, loading, onEdit }: Props) {
   const router = useRouter()
   const handleEdit = () => {
     if (onEdit) {
@@ -20,10 +26,16 @@ export function CompanyInfoSummaryCard({ profile, loading, onEdit }: Props) {
   }
 
   const items = [
-    { label: "会社名", value: profile?.company_name || "未設定" },
-    { label: "業種", value: profile?.industry || "未設定" },
-    { label: "従業員数", value: profile?.employees_range || "未設定" },
-    { label: "年商レンジ", value: profile?.annual_sales_range || "未設定" },
+    { label: "会社名", value: company?.name || profile?.company_name || "未設定" },
+    { label: "業種", value: company?.industry || profile?.industry || "未設定" },
+    {
+      label: "従業員数",
+      value:
+        company?.employees != null
+          ? `${company.employees}名`
+          : profile?.employees_range || "未設定",
+    },
+    { label: "年商レンジ", value: company?.annual_revenue_range || profile?.annual_sales_range || "未設定" },
   ]
 
   return (
