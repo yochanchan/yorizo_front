@@ -3,6 +3,8 @@ import { ArrowRight, ShieldCheck, UserCircle } from "lucide-react"
 
 import { getExperts, type Expert } from "@/lib/api"
 
+export const dynamic = "force-dynamic"
+
 export default async function ConsultantsLandingPage() {
   let experts: Expert[] = []
   try {

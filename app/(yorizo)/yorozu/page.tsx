@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Tag, Loader2, MessageSquare, ChevronRight } from "lucide-react"
 import { getExperts, type Expert } from "@/lib/api"
 
 const filters = ["すべて", "売上", "人材", "資金繰り", "業務改善", "補助金"]
 
-export default function YorozuExpertsPage() {
+function YorozuExpertsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [experts, setExperts] = useState<Expert[]>([])
@@ -129,5 +129,13 @@ export default function YorozuExpertsPage() {
         ))}
       </div>
     </div>
+  )
+}
+
+export default function YorozuExpertsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-[var(--yori-ink-soft)]">読み込み中...</div>}>
+      <YorozuExpertsPageContent />
+    </Suspense>
   )
 }
