@@ -185,15 +185,16 @@ export default function ConsultationMemoPage() {
   useEffect(() => {
     if (!report) return
     const joinList = (items?: string[]) => (items && items.length > 0 ? items.join("\n") : "")
-    if (!recentConcerns.trim()) setRecentConcerns(joinList(report.summary))
-    if (!currentState.trim()) setCurrentState(joinList(report.key_topics))
-    if (!discussionPoints.trim()) setDiscussionPoints(joinList(report.for_expert))
-    if (!idealState.trim() && report.strengths?.length) {
-      setIdealState(joinList(report.strengths))
-    }
-    if (!background.trim() && report.weaknesses?.length) {
-      setBackground(joinList(report.weaknesses))
-    }
+
+    setRecentConcerns((prev) => (prev.trim() ? prev : joinList(report.summary)))
+    setCurrentState((prev) => (prev.trim() ? prev : joinList(report.key_topics)))
+    setDiscussionPoints((prev) => (prev.trim() ? prev : joinList(report.for_expert)))
+    setIdealState((prev) =>
+      prev.trim() || !report.strengths?.length ? prev : joinList(report.strengths),
+    )
+    setBackground((prev) =>
+      prev.trim() || !report.weaknesses?.length ? prev : joinList(report.weaknesses),
+    )
   }, [report])
 
   const memoTitle = useMemo(() => {
