@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
-import { getCompanyProfile, type CompanyProfile } from "@/lib/api"
+
+import { ApiError, DEFAULT_API_ERROR_MESSAGE, getCompanyProfile, type CompanyProfile } from "@/lib/api"
 
 type State = {
   data: CompanyProfile | null
@@ -21,7 +22,8 @@ export function useCompanyProfile(userId: string): State {
       setData(profile)
     } catch (err) {
       console.error(err)
-      setError("会社情報の取得に失敗しました")
+      const message = err instanceof ApiError ? err.message : DEFAULT_API_ERROR_MESSAGE
+      setError(message)
     } finally {
       setIsLoading(false)
     }

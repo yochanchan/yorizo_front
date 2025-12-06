@@ -31,9 +31,7 @@ export function CompanyInfoSummaryCard({ profile, company, loading, onEdit }: Pr
     {
       label: "従業員数",
       value:
-        company?.employees != null
-          ? `${company.employees}名`
-          : profile?.employees_range || "未設定",
+        company?.employees != null ? `${company.employees}名` : profile?.employees_range || "未設定",
     },
     { label: "年商レンジ", value: company?.annual_revenue_range || profile?.annual_sales_range || "未設定" },
   ]
@@ -45,7 +43,7 @@ export function CompanyInfoSummaryCard({ profile, company, loading, onEdit }: Pr
           <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">会社情報</p>
           <h2 className="text-lg md:text-xl font-bold text-[var(--yori-ink-strong)]">経営の基本情報</h2>
           <p className="text-[11px] text-[var(--yori-ink-soft)] mt-1">
-            相談の前に、会社の規模感や業種をさっと確認できます。
+            相談に進む前に、会社の規模感や業種をさっと確認できます。
           </p>
         </div>
         <button

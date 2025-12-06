@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Sprout, MessageCircle, BookOpen } from "lucide-react"
+import { BookOpen, Home, MessageCircle, Sprout } from "lucide-react"
 import clsx from "clsx"
 
 const NAV_ITEMS = [

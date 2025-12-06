@@ -1,8 +1,5 @@
-﻿"use client"
-
 import Image from "next/image"
-import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { ArrowRight, FileText, LineChart, NotebookPen } from "lucide-react"
 
 import { MascotIcon } from "@/components/MascotIcon"
@@ -25,36 +22,19 @@ const STEP_ITEMS = [
   },
 ]
 
-export default function HomePage() {
-  const router = useRouter()
-  const [latestConversation, setLatestConversation] = useState<ConversationSummary | null>(null)
-
-  useEffect(() => {
-    const fetchLatest = async () => {
-      try {
-        const data = await getConversations(USER_ID, 1, 0)
-        setLatestConversation(data?.[0] ?? null)
-      } catch (err) {
-        console.error(err)
-      }
-    }
-    void fetchLatest()
-  }, [])
-
-  const memoLink = useMemo(() => {
-    if (!latestConversation) return null
-    return `/report/${latestConversation.id}`
-  }, [latestConversation])
-
-  const handleStartChat = () => router.push("/chat?reset=true")
-  const handleOpenMemo = () => {
-    if (memoLink) {
-      router.push(memoLink)
-    } else {
-      router.push("/memory")
-    }
+async function fetchLatestConversation(): Promise<ConversationSummary | null> {
+  try {
+    const conversations = await getConversations(USER_ID, 1, 0)
+    return conversations?.[0] ?? null
+  } catch (err) {
+    console.error("latest conversation fetch failed", err)
+    return null
   }
-  const handleWizard = () => router.push("/wizard")
+}
+
+export default async function HomePage() {
+  const latestConversation = await fetchLatestConversation()
+  const memoLink = latestConversation ? `/report/${latestConversation.id}` : null
 
   return (
     <div className="flex flex-col gap-8 md:gap-10 py-4 pb-24">
@@ -74,21 +54,19 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex flex-col gap-3 items-center">
-          <button
-            type="button"
-            onClick={handleStartChat}
+          <Link
+            href="/chat?reset=true"
             className="btn-primary w-full md:w-auto px-8 py-4 text-base font-semibold inline-flex items-center justify-center gap-2"
           >
             Yorizoと話す
             <ArrowRight className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/memory")}
+          </Link>
+          <Link
+            href="/memory"
             className="text-sm font-semibold text-[var(--yori-ink-strong)] underline underline-offset-4"
           >
             過去の会話メモをひらく
-          </button>
+          </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3 text-left">
           {STEP_ITEMS.map((item) => (
@@ -101,11 +79,7 @@ export default function HomePage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => router.push("/report")}
-          className="yori-card p-5 text-left space-y-2 transition hover:shadow-lg"
-        >
+        <Link href="/report" className="yori-card p-5 text-left space-y-2 transition hover:shadow-lg">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--yori-ink-soft)]">
             <LineChart className="h-4 w-4" />
             イマココレポートを見る
@@ -114,13 +88,12 @@ export default function HomePage() {
           <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
             売上持続性・収益性など6指標＋定性的コメントで、会社の立ち位置と考えるべき問いを俯瞰できます。
           </p>
-        </button>
+        </Link>
 
-        <button
-          type="button"
-          onClick={handleOpenMemo}
+        <Link
+          href={memoLink ?? "/memory"}
           className="yori-card p-5 text-left space-y-2 transition hover:shadow-lg disabled:opacity-60"
-          disabled={!memoLink}
+          aria-disabled={!memoLink}
         >
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--yori-ink-soft)]">
             <FileText className="h-4 w-4" />
@@ -135,7 +108,7 @@ export default function HomePage() {
               まだ会話がありません。まずはYorizoと話してみましょう。
             </p>
           )}
-        </button>
+        </Link>
       </section>
 
       <section className="space-y-3">
@@ -150,14 +123,13 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleWizard}
+          <Link
+            href="/wizard"
             className="btn-secondary w-full md:w-auto px-5 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
           >
             かんたんチェックをはじめる
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
       </section>
 

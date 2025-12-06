@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Settings } from "lucide-react"
+
 import { MascotIcon } from "./MascotIcon"
 
 type HeaderProps = {
@@ -41,7 +42,7 @@ export function Header({ title, showBackButton }: HeaderProps) {
         <button
           type="button"
           className="h-10 w-10 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] text-[var(--yori-ink-soft)] flex items-center justify-center shadow-sm"
-          aria-label="設定"
+          aria-label="会社設定"
           onClick={() => router.push("/company")}
         >
           <Settings className="h-5 w-5" />

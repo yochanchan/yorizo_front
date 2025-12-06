@@ -1,4 +1,6 @@
-import { API_BASE_URL } from "./config"
+import { apiFetch, ApiError, LLM_FALLBACK_MESSAGE } from "./api-client"
+
+export { ApiError, type ApiResult, DEFAULT_API_ERROR_MESSAGE, LLM_FALLBACK_MESSAGE } from "./api-client"
 
 export type ChatOption = { id: string; label: string; value?: string | null }
 
@@ -34,39 +36,21 @@ export type ChatTurnResponse = {
 }
 
 export async function chatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/chat`, {
+  return apiFetch<ChatTurnResponse>("/api/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
+    json: payload,
+    fallbackMessage: LLM_FALLBACK_MESSAGE,
   })
-  if (!res.ok) throw new Error(`chat failed: ${res.status}`)
-  return res.json()
 }
 
 export async function guidedChatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/chat/guided`, {
+  return apiFetch<ChatTurnResponse>("/api/chat/guided", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
+    json: payload,
+    fallbackMessage: LLM_FALLBACK_MESSAGE,
   })
-  if (!res.ok) {
-    let message = "Yorizoとの通信に失敗しました。時間をおいて再度お試しください。"
-    try {
-      const data = await res.json()
-      if (data?.detail && typeof data.detail === "string") {
-        message = data.detail
-      }
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(message)
-  }
-  return res.json()
 }
 
-// Homework
 export type HomeworkTask = {
   id: number
   user_id: string
@@ -100,19 +84,14 @@ export type HomeworkTaskUpdate = Partial<Omit<HomeworkTaskCreate, "user_id" | "c
 export async function listHomework(userId: string, status?: "pending" | "done"): Promise<HomeworkTask[]> {
   const query = new URLSearchParams({ user_id: userId })
   if (status) query.set("status_filter", status)
-  const res = await fetch(`${API_BASE_URL}/api/homework?${query.toString()}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`homework list failed: ${res.status}`)
-  return res.json()
+  return apiFetch<HomeworkTask[]>(`/api/homework?${query.toString()}`)
 }
 
 export async function createHomework(payload: HomeworkTaskCreate): Promise<HomeworkTask> {
-  const res = await fetch(`${API_BASE_URL}/api/homework`, {
+  return apiFetch<HomeworkTask>("/api/homework", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`homework create failed: ${res.status}`)
-  return res.json()
 }
 
 export async function bulkCreateHomeworkSuggestions(payload: {
@@ -120,28 +99,21 @@ export async function bulkCreateHomeworkSuggestions(payload: {
   conversation_id?: string
   tasks: { title: string; detail?: string; category?: string }[]
 }): Promise<HomeworkTask[]> {
-  const res = await fetch(`${API_BASE_URL}/api/homework/bulk-from-suggestions`, {
+  return apiFetch<HomeworkTask[]>("/api/homework/bulk-from-suggestions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`homework bulk create failed: ${res.status}`)
-  return res.json()
 }
 
 export async function updateHomework(taskId: number, payload: HomeworkTaskUpdate): Promise<HomeworkTask> {
-  const res = await fetch(`${API_BASE_URL}/api/homework/${taskId}`, {
+  return apiFetch<HomeworkTask>(`/api/homework/${taskId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`homework update failed: ${res.status}`)
-  return res.json()
 }
 
 export async function deleteHomework(taskId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/api/homework/${taskId}`, { method: "DELETE" })
-  if (!res.ok) throw new Error(`homework delete failed: ${res.status}`)
+  await apiFetch(`/api/homework/${taskId}`, { method: "DELETE", parseJson: false })
 }
 
 export type CompanyProfileSummary = {
@@ -170,9 +142,7 @@ export type MemoryResponse = {
 }
 
 export async function getMemory(userId: string): Promise<MemoryResponse | null> {
-  const res = await fetch(`${API_BASE_URL}/api/memory/${userId}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`memory fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<MemoryResponse | null>(`/api/memory/${userId}`)
 }
 
 export type ConversationSummary = { id: string; title: string; date: string }
@@ -182,10 +152,10 @@ export async function getConversations(userId?: string, limit?: number, offset?:
   if (userId) params.set("user_id", userId)
   if (limit) params.set("limit", String(limit))
   if (offset) params.set("offset", String(offset))
-  const query = params.toString() ? `?${params.toString()}` : ""
-  const res = await fetch(`${API_BASE_URL}/api/conversations${query}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`conversations fetch failed: ${res.status}`)
-  const data = await res.json()
+  const query = params.toString()
+  const data = await apiFetch<{ conversations?: ConversationSummary[] }>(
+    `/api/conversations${query ? `?${query}` : ""}`,
+  )
   return data?.conversations ?? []
 }
 
@@ -196,17 +166,13 @@ export type ConsultationMemo = {
 }
 
 export async function getConsultationMemo(conversationId: string): Promise<ConsultationMemo> {
-  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/memo`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`memo fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<ConsultationMemo>(`/api/conversations/${conversationId}/memo`)
 }
 
 export async function refreshConsultationMemo(conversationId: string): Promise<ConsultationMemo> {
-  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/memo/refresh`, {
+  return apiFetch<ConsultationMemo>(`/api/conversations/${conversationId}/memo/refresh`, {
     method: "POST",
   })
-  if (!res.ok) throw new Error(`memo refresh failed: ${res.status}`)
-  return res.json()
 }
 
 export type Expert = {
@@ -227,18 +193,14 @@ export type AvailabilityDay = {
   slots: string[]
 }
 
-const EXPERTS_ENDPOINT = `${API_BASE_URL}/api/experts`
+const EXPERTS_ENDPOINT = "/api/experts"
 
 export async function getExperts(): Promise<Expert[]> {
-  const res = await fetch(EXPERTS_ENDPOINT, { cache: "no-store" })
-  if (!res.ok) throw new Error(`experts fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<Expert[]>(EXPERTS_ENDPOINT)
 }
 
 export async function getExpertAvailability(expertId: string): Promise<AvailabilityDay[]> {
-  const res = await fetch(`${EXPERTS_ENDPOINT}/${expertId}/availability`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`availability fetch failed: ${res.status}`)
-  const data = await res.json()
+  const data = await apiFetch<{ availability?: AvailabilityDay[] }>(`${EXPERTS_ENDPOINT}/${expertId}/availability`)
   return data?.availability ?? []
 }
 
@@ -261,9 +223,7 @@ export type ConversationDetail = {
 }
 
 export async function getConversationDetail(conversationId: string): Promise<ConversationDetail> {
-  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`conversation fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<ConversationDetail>(`/api/conversations/${conversationId}`)
 }
 
 export type LocalBenchmarkScore = {
@@ -306,11 +266,8 @@ export type CompanyAnalysisReport = {
 }
 
 export async function getCompanyAnalysisReport(companyId: string): Promise<CompanyAnalysisReport> {
-  const url = new URL(`${API_BASE_URL}/api/reports/company-analysis`)
-  url.searchParams.set("company_id", companyId)
-  const res = await fetch(url.toString(), { cache: "no-store" })
-  if (!res.ok) throw new Error(`company analysis fetch failed: ${res.status}`)
-  return res.json()
+  const params = new URLSearchParams({ company_id: companyId })
+  return apiFetch<CompanyAnalysisReport>(`/api/reports/company-analysis?${params.toString()}`)
 }
 
 export type ReportHomework = {
@@ -345,15 +302,17 @@ export type ConversationReport = {
 }
 
 export async function getConversationReport(conversationId: string): Promise<ConversationReport> {
-  const res = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/report`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`conversation report fetch failed: ${res.status}`)
-  const data = await res.json()
+  const data = await apiFetch<
+    ConversationReport | { exists?: boolean; report?: ConversationReport }
+  >(`/api/conversations/${conversationId}/report`)
+
   if (data && typeof data === "object" && "exists" in data) {
     if (data.exists === false || !data.report) {
-      throw new Error("conversation report not found")
+      throw new ApiError("conversation report not found")
     }
     return data.report as ConversationReport
   }
+
   return data as ConversationReport
 }
 
@@ -398,9 +357,7 @@ export type CompanyReport = {
 }
 
 export async function getCompanyReport(companyId: string): Promise<CompanyReport> {
-  const res = await fetch(`${API_BASE_URL}/api/companies/${companyId}/report`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`company report fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<CompanyReport>(`/api/companies/${companyId}/report`)
 }
 
 export type CompanyProfile = {
@@ -418,20 +375,21 @@ export type CompanyProfile = {
 export type CompanyProfilePayload = Omit<CompanyProfile, "user_id" | "created_at" | "updated_at">
 
 export async function getCompanyProfile(userId: string): Promise<CompanyProfile | null> {
-  const res = await fetch(`${API_BASE_URL}/api/company-profile/${userId}`, { cache: "no-store" })
-  if (res.status === 404) return null
-  if (!res.ok) throw new Error(`company profile fetch failed: ${res.status}`)
-  return res.json()
+  try {
+    return await apiFetch<CompanyProfile>(`/api/company-profile/${userId}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
 }
 
 export async function saveCompanyProfile(userId: string, payload: CompanyProfilePayload): Promise<CompanyProfile> {
-  const res = await fetch(`${API_BASE_URL}/api/company-profile/${userId}`, {
+  return apiFetch<CompanyProfile>(`/api/company-profile/${userId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`company profile save failed: ${res.status}`)
-  return res.json()
 }
 
 export type ConsultationBookingPayload = {
@@ -464,13 +422,10 @@ export type ConsultationBookingResponse = {
 export async function createConsultationBooking(
   payload: ConsultationBookingPayload,
 ): Promise<ConsultationBookingResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/consultations`, {
+  return apiFetch<ConsultationBookingResponse>("/api/consultations", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`consultation booking failed: ${res.status}`)
-  return res.json()
 }
 
 export type DocumentType = "financial_statement" | "trial_balance" | "plan" | "other"
@@ -514,22 +469,17 @@ export async function uploadDocument(payload: UploadDocumentPayload): Promise<Do
   if (payload.company_id) form.append("company_id", payload.company_id)
   if (payload.conversation_id) form.append("conversation_id", payload.conversation_id)
 
-  const res = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+  return apiFetch<DocumentUploadResult>("/api/documents/upload", {
     method: "POST",
     body: form,
   })
-  if (!res.ok) throw new Error(`document upload failed: ${res.status}`)
-  return res.json()
 }
 
 export async function listDocuments(userId?: string): Promise<DocumentItem[]> {
   const query = userId ? `?user_id=${encodeURIComponent(userId)}` : ""
-  const res = await fetch(`${API_BASE_URL}/api/documents${query}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`documents fetch failed: ${res.status}`)
-  const data = await res.json()
+  const data = await apiFetch<{ documents?: DocumentItem[] }>(`/api/documents${query}`)
   return data?.documents ?? []
 }
-
 
 export type AdminBooking = {
   id: string
@@ -569,30 +519,28 @@ export async function getAdminBookings(params?: {
   if (params?.date_to) query.set("date_to", params.date_to)
   if (params?.expert_id) query.set("expert_id", params.expert_id)
   const qs = query.toString()
-  const res = await fetch(`${API_BASE_URL}/api/admin/bookings${qs ? `?${qs}` : ""}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`admin bookings fetch failed: ${res.status}`)
-  const data = await res.json()
+  const data = await apiFetch<{ bookings?: AdminBooking[] }>(`/api/admin/bookings${qs ? `?${qs}` : ""}`)
   return data?.bookings ?? []
 }
 
-
 export async function getAdminBooking(id: string): Promise<AdminBooking> {
-  const res = await fetch(`${API_BASE_URL}/api/admin/bookings/${id}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`admin booking fetch failed: ${res.status}`)
-  return res.json()
+  return apiFetch<AdminBooking>(`/api/admin/bookings/${id}`)
 }
 
 export async function updateAdminBooking(
   id: string,
-  payload: { status?: string; note?: string | null; conversation_id?: string | null; meeting_url?: string | null; line_contact?: string | null },
+  payload: {
+    status?: string
+    note?: string | null
+    conversation_id?: string | null
+    meeting_url?: string | null
+    line_contact?: string | null
+  },
 ): Promise<AdminBooking> {
-  const res = await fetch(`${API_BASE_URL}/api/admin/bookings/${id}`, {
+  return apiFetch<AdminBooking>(`/api/admin/bookings/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    json: payload,
   })
-  if (!res.ok) throw new Error(`admin booking update failed: ${res.status}`)
-  return res.json()
 }
 
 export type SimilarCase = {
@@ -607,8 +555,6 @@ export async function getCaseExamples(params?: { channel?: string; industry?: st
   if (params?.channel) query.set("channel", params.channel)
   if (params?.industry) query.set("industry", params.industry)
   const qs = query.toString()
-  const res = await fetch(`${API_BASE_URL}/api/case-examples${qs ? `?${qs}` : ""}`, { cache: "no-store" })
-  if (!res.ok) throw new Error(`case examples fetch failed: ${res.status}`)
-  const data = await res.json()
+  const data = await apiFetch<{ cases?: SimilarCase[] }>(`/api/case-examples${qs ? `?${qs}` : ""}`)
   return data?.cases ?? []
 }

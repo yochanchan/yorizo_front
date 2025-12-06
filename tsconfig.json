@@ -23,13 +23,10 @@
   "include": [
     "next-env.d.ts",
     "app/**/*",
-    "components/Header.tsx",
-    "components/BottomNav.tsx",
-    "components/MascotIcon.tsx",
-    "components/theme-provider.tsx",
+    "components/**/*",
     "hooks/**/*",
     "lib/**/*",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "components/ui"]
+  "exclude": ["node_modules"]
 }

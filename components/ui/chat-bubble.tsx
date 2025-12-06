@@ -1,5 +1,3 @@
-"use client"
-
 import { ReactNode } from "react"
 import clsx from "clsx"
 
@@ -21,8 +19,8 @@ export function ChatBubble({ role, children, timestamp, className, bubbleClassNa
         className={clsx(
           "max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
           "border shadow-sm",
-          isUser && "bg-[var(--yori-surface)] border-black/5 text-[var(--yori-ink-strong)]",
-          !isUser && !isSystem && "bg-[var(--yori-secondary)] border-[var(--yori-outline)] text-[var(--yori-ink)]",
+          isUser && "bg-[var(--yori-primary)] border-black/5 text-[var(--yori-primary-ink)]",
+          !isUser && !isSystem && "bg-white border-[var(--yori-outline)] text-[var(--yori-ink-strong)]",
           isSystem && "bg-[var(--yori-surface-muted)] border-[var(--yori-outline)] text-[var(--yori-ink-soft)] mx-auto",
           bubbleClassName,
         )}
