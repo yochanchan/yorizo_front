@@ -23,6 +23,7 @@ export type ApiResult<T> =
     }
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
+  body?: BodyInit | null
   json?: unknown
   fallbackMessage?: string
   parseJson?: boolean
@@ -43,9 +44,9 @@ async function parseJsonSafe(response: Response) {
 }
 
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { json, fallbackMessage, parseJson = true, ...init } = options
+  const { json, fallbackMessage, parseJson = true, body: rawBody, ...init } = options
   const headers = new Headers(init.headers)
-  let body = init.body
+  let body = rawBody as BodyInit | undefined
 
   if (json !== undefined) {
     body = JSON.stringify(json)

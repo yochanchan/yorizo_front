@@ -1,8 +1,10 @@
 import Link from "next/link"
 import { CalendarDays, Clock, MapPin, Phone, Video } from "lucide-react"
 
-import { getAdminBookings } from "@/lib/api"
+import { getAdminBookings, type AdminBooking } from "@/lib/api"
 import { BookingDashboard } from "./BookingDashboard"
+
+export const dynamic = "force-dynamic"
 
 const channelLabel: Record<string, string> = {
   online: "オンライン",
@@ -24,7 +26,16 @@ const statusClass: Record<string, string> = {
 }
 
 export default async function AdminBookingsPage() {
-  const bookings = await getAdminBookings({ limit: 100 })
+  let bookings: AdminBooking[] = []
+  let loadError = false
+
+  try {
+    bookings = await getAdminBookings({ limit: 100 })
+  } catch (error) {
+    // 管理画面はビルド時や一時的な API 障害でも落とさず、画面内でフォールバックする。
+    console.error("admin bookings fetch failed", error)
+    loadError = true
+  }
 
   return (
     <div className="w-full px-6 md:px-10 py-8 md:py-12 bg-slate-50">
@@ -42,6 +53,12 @@ export default async function AdminBookingsPage() {
             相談員別ビューへ
           </Link>
         </header>
+
+        {loadError && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            予紁E��報を取得できませんでした。時間をおいて再度アクセスしてください。
+          </div>
+        )}
 
         <BookingDashboard bookings={bookings} />
 
