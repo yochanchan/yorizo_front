@@ -1,11 +1,13 @@
 import Image from "next/image"
 import { FileText, LineChart, MessageCircle, NotebookPen, Sparkles } from "lucide-react"
+import { Fragment } from "react"
 
 import { YoriCard } from "@/components/YoriCard"
 import { YorizoAvatar } from "@/components/YorizoAvatar"
 import { getConversations, type ConversationSummary } from "@/lib/api"
 
 const USER_ID = "demo-user"
+const CONNECTOR_COLOR = "#C8CDD5"
 
 const STEP_ITEMS = [
   {
@@ -21,6 +23,18 @@ const STEP_ITEMS = [
     description: "よろず支援窓口や専門家に渡せる 1 枚メモ。自分で進めるアクションのログも保存。",
   },
 ]
+
+function StepConnector() {
+  return (
+    <span
+      aria-hidden
+      data-testid="home-step-connector"
+      data-mobile-orientation="down"
+      className="block h-0 w-0 rotate-90 md:rotate-0 border-y-[7px] border-y-transparent border-l-[14px] flex-shrink-0 self-center"
+      style={{ borderLeftColor: CONNECTOR_COLOR }}
+    />
+  )
+}
 
 async function fetchLatestConversation(): Promise<ConversationSummary | null> {
   try {
@@ -89,9 +103,17 @@ export default async function HomePage() {
         </YoriCard>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
-        {STEP_ITEMS.map((item) => (
-          <YoriCard key={item.title} variant="info" title={item.title} description={item.description} />
+      <section className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-4">
+        {STEP_ITEMS.map((item, index) => (
+          <Fragment key={item.title}>
+            <YoriCard
+              variant="info"
+              title={item.title}
+              description={item.description}
+              className="flex-1 w-full"
+            />
+            {index < STEP_ITEMS.length - 1 && <StepConnector />}
+          </Fragment>
         ))}
       </section>
 
