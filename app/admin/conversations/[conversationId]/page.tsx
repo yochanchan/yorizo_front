@@ -85,6 +85,7 @@ function MessageCard({ role, content, createdAt }: MessageCardProps) {
           <div className="space-y-1 mt-2">
             <p className="text-xs text-slate-500">アクション</p>
             <div className="flex flex-wrap gap-2">
+              {/* Admin-visible only: keep CTA buttons for LLM output inspection; end-user /chat UI does not render them. */}
               {parsed.cta_buttons.map((cta) => (
                 <span
                   key={cta.id}
