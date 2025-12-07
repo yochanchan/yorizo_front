@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronRight, LineChart, Loader2, MessageSquare, Tag, Users } from "lucide-react"
+import { ChevronRight, Loader2, Tag } from "lucide-react"
 
 import { YoriCard } from "@/components/YoriCard"
 import { YorizoAvatar } from "@/components/YorizoAvatar"
@@ -52,7 +52,6 @@ function YorozuExpertsPageContent() {
     if (activeFilter === "すべて") return experts
     return experts.filter((expert) => expert.tags.some((tag) => tag.includes(activeFilter)))
   }, [experts, activeFilter])
-  const primaryScheduleHref = experts[0] ? `/yorozu/experts/${experts[0].id}/schedule` : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -78,29 +77,6 @@ function YorozuExpertsPageContent() {
             />
           ))}
         </div>
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-3">
-        <YoriCard
-          variant="primaryLink"
-          title="チャットで相談"
-          href="/chat"
-          icon={<MessageSquare className="h-5 w-5" />}
-        />
-        <YoriCard
-          variant="link"
-          title="イマココレポートを見る"
-          description="相談メモと宿題を 1 枚で確認"
-          href="/report"
-          icon={<LineChart className="h-5 w-5" />}
-        />
-        <YoriCard
-          variant="primaryLink"
-          title="専門家に予約する"
-          href={primaryScheduleHref ?? "/yorozu"}
-          disabled={!primaryScheduleHref}
-          icon={<Users className="h-5 w-5" />}
-        />
       </section>
 
       {isLoading && (

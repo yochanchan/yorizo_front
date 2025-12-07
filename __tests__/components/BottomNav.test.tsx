@@ -9,7 +9,7 @@ jest.mock("next/navigation", () => ({
 describe("BottomNav", () => {
   it("renders tabs for main routes", () => {
     render(<BottomNav />)
-    const labels = ["ホーム", "よろず相談", "メモリー", "宿題", "イマココ"]
+    const labels = ["ホーム", "よろず相談", "Yorizoの記憶", "宿題", "イマココ"]
     labels.forEach((label) => {
       expect(screen.getByText(label)).toBeInTheDocument()
     })

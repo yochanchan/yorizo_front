@@ -292,29 +292,6 @@ export default function CompanyReportPage() {
         </div>
       </header>
 
-      <section className="yori-card p-5 md:p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <YorizoAvatar size="sm" mood="satisfied" />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">次の一歩をすぐ動ける場所をまとめました</p>
-            <p className="text-sm text-[var(--yori-ink)]">
-              相談メモ・宿題・専門家への導線を 1 タップで開けます。イマココレポートは「いま」を俯瞰するハブです。
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-2 md:grid-cols-3">
-          <YoriCard variant="primaryLink" title="チャットを再開" href="/chat" icon={<MessageCircle className="h-5 w-5" />} />
-          <YoriCard
-            variant="link"
-            title="宿題を確認"
-            description="完了状況と優先度を見直す"
-            href="/homework"
-            icon={<NotebookPen className="h-5 w-5" />}
-          />
-          <YoriCard variant="primaryLink" title="専門家に相談" href="/yorozu" icon={<Users className="h-5 w-5" />} />
-        </div>
-      </section>
-
       {error && <p className="text-sm text-rose-500">{error}</p>}
       {loading && (
         <div className="yori-card p-5">
