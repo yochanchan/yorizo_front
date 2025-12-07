@@ -110,4 +110,28 @@ describe("ChatClient", () => {
       expect(screen.getByText(LLM_FALLBACK_MESSAGE)).toBeInTheDocument()
     })
   })
+
+  it("does not render CTA buttons even when response includes cta_buttons", async () => {
+    mockedGuidedChatTurn.mockResolvedValue({
+      conversation_id: "cta-1",
+      reply: "CTA is kept in the API response only.",
+      question: "What would you like to do next?",
+      options: [],
+      cta_buttons: [{ id: "homework", label: "宿題を作成する", action: "open_homework" }],
+      allow_free_text: true,
+      step: 2,
+      done: false,
+    })
+
+    const user = userEvent.setup()
+    render(<ChatClient initialConversationId={null} />)
+
+    await user.type(screen.getByPlaceholderText("ご相談内容を入力してください"), "CTA check")
+    await user.click(screen.getByRole("button", { name: "送信" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("CTA is kept in the API response only.")).toBeInTheDocument()
+    })
+    expect(screen.queryByRole("button", { name: /宿題を作成する/ })).toBeNull()
+  })
 })

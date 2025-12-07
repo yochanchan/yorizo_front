@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 
 import { VoiceInputControls } from "@/components/voice/VoiceInputControls"
 import { ChatBubble } from "@/components/ui/chat-bubble"
-import { ChatCTAButtons } from "@/components/ui/chat-cta-buttons"
 import { ChatQuickOptions } from "@/components/ui/chat-quick-options"
 import { YorizoAvatar } from "@/components/YorizoAvatar"
 import { ThinkingRow } from "@/components/ThinkingRow"
@@ -16,7 +15,6 @@ import {
   getConversationDetail,
   guidedChatTurn,
   uploadDocument,
-  type ChatCTAButton,
   type ChatOption,
   type ChatTurnResponse,
   type ConversationDetail,
@@ -28,7 +26,6 @@ type ChatMessage = {
   content: string
   question?: string
   options?: ChatOption[]
-  ctaButtons?: ChatCTAButton[]
   allowFreeText?: boolean
   step?: number
   done?: boolean
@@ -85,7 +82,6 @@ function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
           content: parsed.reply ?? parsed.message ?? parsed.content ?? "",
           question: parsed.question ?? "",
           options: parsed.options ?? [],
-          ctaButtons: parsed.cta_buttons ?? [],
           allowFreeText: parsed.allow_free_text ?? true,
           step: parsed.step,
           done: parsed.done,
@@ -168,7 +164,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }, [initialConversationId, reset])
 
   const lastAssistant = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant"), [messages])
-  const ctaButtons = lastAssistant?.ctaButtons ?? []
   const quickOptions = lastAssistant?.options ?? []
   const assistantStep = lastAssistant?.step ?? messages.filter((m) => m.role === "assistant").length
   const currentStep = assistantStep || FALLBACK_ASSISTANT.step || 1
@@ -218,7 +213,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       content: res.reply,
       question: res.question,
       options: res.options ?? [],
-      ctaButtons: res.cta_buttons ?? [],
       allowFreeText: res.allow_free_text,
       step: res.step,
       done: res.done,
@@ -309,17 +303,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }
 
-  const handleCTA = (button: ChatCTAButton) => {
-    if (button.action === "open_memory") {
-      router.push("/memory")
-      return
-    }
-    if (button.action === "open_report" && conversationId) {
-      router.push(`/report/${conversationId}`)
-      return
-    }
-  }
-
   const renderMessage = (msg: ChatMessage) => {
     const isAssistant = msg.role === "assistant"
     const replyText = (msg.content || "").trim()
@@ -401,7 +384,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
         </div>
       )}
 
-      <ChatCTAButtons buttons={ctaButtons} onSelect={handleCTA} className="px-1 sm:px-2" />
       <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading || done} />
 
       {done && conversationId && (
