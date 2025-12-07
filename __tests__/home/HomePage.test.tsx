@@ -28,7 +28,7 @@ describe("HomePage", () => {
     ;(getConversations as jest.Mock).mockResolvedValue([])
 
     const view = await HomePage()
-    render(view)
+    const { container } = render(view)
 
     const connectors = screen.getAllByTestId("home-step-connector")
     expect(connectors).toHaveLength(2)
@@ -38,5 +38,8 @@ describe("HomePage", () => {
       expect(connector.className).toContain("rotate-90")
       expect(connector.className).toContain("md:rotate-0")
     })
+    const heroSection = container.querySelector(".yori-card-muted")
+    expect(heroSection).toBeTruthy()
+    expect(heroSection).toContainElement(connectors[0])
   })
 })

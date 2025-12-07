@@ -67,6 +67,19 @@ export default async function HomePage() {
             </p>
           </div>
         </div>
+        <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-4">
+          {STEP_ITEMS.map((item, index) => (
+            <Fragment key={item.title}>
+              <YoriCard
+                variant="info"
+                title={item.title}
+                description={item.description}
+                className="flex-1 w-full"
+              />
+              {index < STEP_ITEMS.length - 1 && <StepConnector />}
+            </Fragment>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
@@ -102,21 +115,6 @@ export default async function HomePage() {
           {!memoLink && <p className="text-xs text-[var(--yori-ink-soft)]">まだ会話がありません。まずは Yorizo と話してみましょう。</p>}
         </YoriCard>
       </section>
-
-      <section className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-4">
-        {STEP_ITEMS.map((item, index) => (
-          <Fragment key={item.title}>
-            <YoriCard
-              variant="info"
-              title={item.title}
-              description={item.description}
-              className="flex-1 w-full"
-            />
-            {index < STEP_ITEMS.length - 1 && <StepConnector />}
-          </Fragment>
-        ))}
-      </section>
-
       <section className="yori-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <NotebookPen className="h-5 w-5 text-[var(--yori-ink-strong)]" />
