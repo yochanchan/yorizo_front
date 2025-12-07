@@ -45,4 +45,5 @@ jobs:
           slot-name: 'production'                      # ← スロット未使用なので production を明示
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: release.zip
+          clean: true   # ★追加
 
