@@ -64,7 +64,7 @@ export default async function HomePage() {
         />
         <YoriCard
           variant="primaryLink"
-          title="AI問診を受ける"
+          title="かんたんチェックをはじめる"
           href="/wizard"
           icon={<Sparkles className="h-5 w-5" />}
         />
