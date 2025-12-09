@@ -36,7 +36,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     short: "売上が増えているか・減っているかのスピード",
     formula: "（今年の売上 - 昨年の売上） ÷ 昨年の売上",
     description: "売上が前年と比べてどれくらい伸びているか（または減っているか）を見る指標です。",
-    hint: "＋10％以上：成長傾向／0〜10％：横ばい／マイナス：要注意。",
+    hint: "＋10％以上：成長傾向／0?10％：横ばい／マイナス：要注意。",
   },
   {
     key: "profitability",
@@ -44,7 +44,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     short: "本業の売上からどれくらい利益を残せているか",
     formula: "営業利益 ÷ 売上高",
     description: "本業の売上に対して、どれくらい利益を残せているかを見る指標です。",
-    hint: "5％以上：良好／0〜5％：薄利で改善余地あり／マイナス：本業赤字。",
+    hint: "5％以上：良好／0?5％：薄利で改善余地あり／マイナス：本業赤字。",
   },
   {
     key: "soundness",
@@ -52,7 +52,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     short: "借入金が本業で稼ぐお金の何年分か",
     formula: "（借入金 - 現預金） ÷ （営業利益 ＋ 減価償却費）",
     description: "借入金が、本業で稼ぐお金（営業利益＋減価償却費）の何年分かを示す指標です。",
-    hint: "3倍未満：おおむね安心／3〜5倍：注意ゾーン／5倍超：返済計画の見直しが必要。",
+    hint: "3倍未満：おおむね安心／3?5倍：注意ゾーン／5倍超：返済計画の見直しが必要。",
   },
   {
     key: "efficiency",
@@ -60,7 +60,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     short: "売掛金・在庫に何か月分のお金が寝ているか",
     formula: "（売上債権 ＋ 在庫 - 仕入債務） ÷ 月商（＝売上高 ÷ 12）",
     description: "売掛金や在庫に、月商何か月分のお金が寝ているかを見る指標です。",
-    hint: "1か月未満：回転良好／1〜2か月：ふつう／2か月超：条件や在庫の見直し余地あり。",
+    hint: "1か月未満：回転良好／1?2か月：ふつう／2か月超：条件や在庫の見直し余地あり。",
   },
   {
     key: "safety",
@@ -68,7 +68,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     short: "返済不要のお金がどれくらいあるか",
     formula: "自己資本 ÷ 総資産",
     description: "返済不要のお金（自己資本）が全体のどれくらいを占めるかを見る指標です。",
-    hint: "30％以上：比較的安心／10〜30％：標準〜やや薄め／10％未満：ショックに弱い状態。",
+    hint: "30％以上：比較的安心／10?30％：標準?やや薄め／10％未満：ショックに弱い状態。",
   },
 ]
 
@@ -109,7 +109,7 @@ const formatDate = (value?: string | null): string => {
   return d.toLocaleDateString("ja-JP")
 }
 
-// 1行の「1.〜2.〜3.〜」形式の文字列を、項目ごとの配列に変換する
+// 1行の「1.?2.?3.?」形式の文字列を、項目ごとの配列に変換する
 const splitTodoItems = (raw?: string | null): string[] => {
   if (!raw) return []
   const normalized = raw.replace(/\s+/g, " ")
@@ -380,7 +380,8 @@ export default function CompanyReportPage() {
 
   const futureDetail = report?.future_goal || report?.desired_image || ""
   const futureSummary = summarizeOneLine(futureDetail || summaryComment)
-  const todoItems = splitTodoItems(report?.action_plan || "")
+  const parsedTodos = splitTodoItems(report?.action_plan || "")
+  const todoItems = parsedTodos.length ? parsedTodos : topTodos.map((t) => t.title).filter(Boolean)
 
   const qualitativeSections = [
     { title: "経営者の特徴", data: qualitative?.keieisha },
@@ -423,7 +424,7 @@ export default function CompanyReportPage() {
         <>
           <section className="mb-4 md:mb-6">
             <div className="rounded-2xl bg-[#FFF9E6] px-4 py-3 md:px-6 md:py-4 flex items-start gap-3">
-              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-yellow-500">📝</div>
+              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-yellow-500">??</div>
               <div className="space-y-1 text-sm md:text-base">
                 <p className="text-slate-700">
                   直近の決算やお話の内容から、「いまの会社のバランス」と「気になるポイント」をわかりやすく整理しました。まずは全体のイメージをつかんでみてください。
@@ -637,7 +638,7 @@ export default function CompanyReportPage() {
                   <div className="flex flex-wrap gap-2">
                     {(snapshotStrengths || []).slice(0, 3).map((item, idx) => (
                       <div key={`${item}-${idx}`} className="rounded-2xl bg-sky-50 px-3 py-2 text-xs md:text-sm text-slate-800">
-                        <span className="mr-1">✅</span>
+                        <span className="mr-1">?</span>
                         {item}
                       </div>
                     ))}
@@ -681,11 +682,11 @@ export default function CompanyReportPage() {
               </div>
             </AccordionSection>
 
-            <AccordionSection title="2〜3年後のイメージ・対策案" summary={futureSummary}>
+            <AccordionSection title="2?3年後のイメージ・対策案" summary={futureSummary}>
               {futureDetail ? (
                 <p>{futureDetail}</p>
               ) : (
-                <p className="text-[11px] text-slate-500">2〜3年後のイメージはまだ登録されていません。</p>
+                <p className="text-[11px] text-slate-500">2?3年後のイメージはまだ登録されていません。</p>
               )}
             </AccordionSection>
           </section>
@@ -711,6 +712,8 @@ export default function CompanyReportPage() {
     </div>
   )
 }
+
+
 
 
 
