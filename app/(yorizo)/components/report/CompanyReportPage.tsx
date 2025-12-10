@@ -17,6 +17,13 @@ const COMPANY_ID = "1"
 const COMPANY_PROFILE_ID = "demo-user"
 
 const KPI_AXES = ["売上持続性", "収益性", "健全性", "効率性", "安全性"]
+const AXIS_KEY_MAP: Record<string, KpiKey> = {
+  売上持続性: "sales_sustainability",
+  収益性: "profitability",
+  健全性: "soundness",
+  効率性: "efficiency",
+  安全性: "safety",
+}
 
 type KpiKey = "sales_sustainability" | "profitability" | "soundness" | "efficiency" | "safety"
 
@@ -27,6 +34,29 @@ type KpiDefinition = {
   formula: string
   description: string
   hint: string
+}
+
+type KpiValueDto = {
+  key: string
+  label: string
+  raw: number | null
+  value_display: string
+  unit?: string | null
+  score: number | null
+}
+
+type KpiPeriodDto = {
+  label: string
+  scores: Array<number | null>
+  raw_values: Array<number | null>
+  kpis?: KpiValueDto[]
+}
+
+type CompanyReportWithKpi = CompanyReport & {
+  radar: {
+    axes: string[]
+    periods: KpiPeriodDto[]
+  }
 }
 
 export const KPI_DEFINITIONS: KpiDefinition[] = [
@@ -119,6 +149,25 @@ const splitTodoItems = (raw?: string | null): string[] => {
     .filter(Boolean)
 }
 
+const formatKpiValue = (key: KpiKey, raw: number | null | undefined): string => {
+  if (raw == null || Number.isNaN(raw)) {
+    return "データなし"
+  }
+  const rounded = Number(raw.toFixed(1))
+  switch (key) {
+    case "sales_sustainability":
+    case "profitability":
+    case "safety":
+      return `${rounded.toFixed(1)}%`
+    case "soundness":
+      return `${rounded.toFixed(1)}年`
+    case "efficiency":
+      return `${rounded.toFixed(1)}か月`
+    default:
+      return rounded.toFixed(1)
+  }
+}
+
 function AccordionSection({ title, summary, children, defaultOpen = false }: AccordionSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -174,7 +223,8 @@ function ExpandableSectionBody({ children, initialLines = 3 }: ExpandableSection
   )
 }
 
-function RadarChart({ periods, axes }: { periods: CompanyReport["radar"]["periods"]; axes: string[] }) {
+function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"]["periods"]; axes: string[] }) {
+  // periods expected with score (0-5); None treated as 0
   if (!periods?.length) {
     return (
       <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
@@ -236,7 +286,7 @@ function RadarChart({ periods, axes }: { periods: CompanyReport["radar"]["period
   )
 }
 
-function ValueTable({ periods, axes }: { periods: CompanyReport["radar"]["periods"]; axes: string[] }) {
+function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"]["periods"]; axes: string[] }) {
   if (!periods?.length) {
     return (
       <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
@@ -263,9 +313,16 @@ function ValueTable({ periods, axes }: { periods: CompanyReport["radar"]["period
               <td className="px-3 py-2 font-semibold text-[var(--yori-ink-strong)]">{axis}</td>
               {periods.map((p) => (
                 <td key={`${axis}-${p.label}`} className="px-3 py-2 text-[var(--yori-ink)]">
-                  {p.raw_values?.[rowIdx] !== undefined && p.raw_values?.[rowIdx] !== null
-                    ? p.raw_values[rowIdx]?.toLocaleString("ja-JP")
-                    : "データなし"}
+                  {(() => {
+                    const kpi = p.kpis?.find((k) => k.label === axis) || p.kpis?.find((k) => k.key === AXIS_KEY_MAP[axis])
+                    if (kpi?.value_display) return kpi.value_display
+                    const key = (kpi?.key as KpiKey) || AXIS_KEY_MAP[axis]
+                    const raw = kpi?.raw ?? p.raw_values?.[rowIdx]
+                    if (key) return formatKpiValue(key, raw)
+                    if (raw == null) return "データなし"
+                    const rounded = Number(raw.toFixed(1))
+                    return rounded.toFixed(1)
+                  })()}
                 </td>
               ))}
             </tr>
@@ -300,7 +357,7 @@ const KpiAccordionItem = ({ title, summary, body, isOpen, onToggle }: KpiAccordi
 export default function CompanyReportPage() {
   const router = useRouter()
   const { data: profile } = useCompanyProfile(COMPANY_PROFILE_ID)
-  const [report, setReport] = useState<CompanyReport | null>(null)
+  const [report, setReport] = useState<CompanyReportWithKpi | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openKpiKey, setOpenKpiKey] = useState<KpiKey | null>("sales_sustainability")
@@ -310,7 +367,7 @@ export default function CompanyReportPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await getCompanyReport(COMPANY_ID)
+      const data = (await getCompanyReport(COMPANY_ID)) as unknown as CompanyReportWithKpi
       setReport(data)
     } catch (err) {
       console.error(err)
