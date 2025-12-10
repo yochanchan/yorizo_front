@@ -90,9 +90,9 @@ export function CompanyProfileForm({ companyId, userId = "demo-user" }: CompanyP
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">会社名</label>
-          <input
-            value={profile.company_name}
+        <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">会社名</label>
+        <input
+            value={profile.company_name ?? ""}
             onChange={(e) => setProfile((prev) => ({ ...prev, company_name: e.target.value }))}
             className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
           />
