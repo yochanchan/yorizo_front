@@ -319,7 +319,7 @@ export async function getConversationReport(conversationId: string): Promise<Con
 export type RadarPeriod = {
   label: string
   scores: number[]
-  raw_values: number[]
+  raw_values: (number | null)[]
 }
 
 export type RadarSection = {
@@ -329,9 +329,12 @@ export type RadarSection = {
 
 export interface CompanySummary {
   id: string | number
+  company_name?: string | null
   name?: string | null
   industry?: string | null
   employees?: number | null
+  employees_range?: string | null
+  annual_sales_range?: string | null
   annual_revenue_range?: string | null
 }
 
@@ -368,6 +371,14 @@ export type CompanyProfile = {
   annual_sales_range?: string | null
   location_prefecture?: string | null
   years_in_business?: number | null
+  business_type?: string | null
+  founded_year?: number | null
+  city?: string | null
+  main_bank?: string | null
+  has_loan?: string | null
+  has_rent?: string | null
+  owner_age?: string | null
+  main_concern?: string | null
   created_at: string
   updated_at: string
 }
@@ -449,12 +460,14 @@ export type DocumentItem = {
   period_label?: string | null
   storage_path?: string
   ingested?: boolean
+  fiscal_year?: number | null
 }
 
 export type UploadDocumentPayload = {
   file: File
   doc_type: DocumentType
   period_label: string
+  fiscal_year?: number
   user_id?: string
   company_id?: string
   conversation_id?: string
@@ -465,6 +478,9 @@ export async function uploadDocument(payload: UploadDocumentPayload): Promise<Do
   form.append("file", payload.file)
   form.append("doc_type", payload.doc_type)
   form.append("period_label", payload.period_label)
+  if (payload.fiscal_year !== undefined && payload.fiscal_year !== null) {
+    form.append("fiscal_year", String(payload.fiscal_year))
+  }
   if (payload.user_id) form.append("user_id", payload.user_id)
   if (payload.company_id) form.append("company_id", payload.company_id)
   if (payload.conversation_id) form.append("conversation_id", payload.conversation_id)
@@ -479,6 +495,10 @@ export async function listDocuments(userId?: string): Promise<DocumentItem[]> {
   const query = userId ? `?user_id=${encodeURIComponent(userId)}` : ""
   const data = await apiFetch<{ documents?: DocumentItem[] }>(`/api/documents${query}`)
   return data?.documents ?? []
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  await apiFetch(`/api/documents/${documentId}`, { method: "DELETE", parseJson: false })
 }
 
 export type AdminBooking = {
