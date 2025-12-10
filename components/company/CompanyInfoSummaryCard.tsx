@@ -6,9 +6,12 @@ import type { CompanyProfile } from "@/lib/api"
 type Props = {
   profile: CompanyProfile | null
   company?: {
+    company_name?: string | null
     name?: string | null
     industry?: string | null
     employees?: number | null
+    employees_range?: string | null
+    annual_sales_range?: string | null
     annual_revenue_range?: string | null
   }
   loading?: boolean
@@ -26,14 +29,30 @@ export function CompanyInfoSummaryCard({ profile, company, loading, onEdit }: Pr
   }
 
   const items = [
-    { label: "会社名", value: company?.name || profile?.company_name || "未設定" },
-    { label: "業種", value: company?.industry || profile?.industry || "未設定" },
+    {
+      label: "会社名",
+      value:
+        profile?.company_name ??
+        company?.company_name ??
+        company?.name ??
+        "未登録",
+    },
+    { label: "業種", value: profile?.industry ?? company?.industry ?? "未登録" },
     {
       label: "従業員数",
       value:
-        company?.employees != null ? `${company.employees}名` : profile?.employees_range || "未設定",
+        profile?.employees_range ??
+        company?.employees_range ??
+        (company?.employees != null ? `${company.employees}名` : "未登録"),
     },
-    { label: "年商レンジ", value: company?.annual_revenue_range || profile?.annual_sales_range || "未設定" },
+    {
+      label: "年商レンジ",
+      value:
+        profile?.annual_sales_range ??
+        company?.annual_sales_range ??
+        company?.annual_revenue_range ??
+        "未登録",
+    },
   ]
 
   return (
