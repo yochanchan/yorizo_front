@@ -316,10 +316,20 @@ export async function getConversationReport(conversationId: string): Promise<Con
   return data as ConversationReport
 }
 
+export type KpiValue = {
+  key: string
+  label: string
+  value_display?: string | null
+  raw?: number | null
+  unit?: string | null
+  score?: number | null
+}
+
 export type RadarPeriod = {
   label: string
   scores: number[]
   raw_values: (number | null)[]
+  kpis?: KpiValue[]
 }
 
 export type RadarSection = {

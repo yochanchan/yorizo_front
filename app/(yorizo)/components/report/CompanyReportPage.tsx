@@ -307,7 +307,7 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
                   return (
                     <text
                       x={x}
-                      y={(y ?? 0) - 8}
+                      y={(((y as number) ?? 0) - 8)}
                       textAnchor="middle"
                       className="text-[10px] md:text-[11px] fill-slate-700"
                     >
@@ -466,7 +466,6 @@ export default function CompanyReportPage() {
     report?.company?.company_name ||
     report?.company?.name ||
     profile?.company_name ||
-    profile?.name ||
     "会社"
   const summaryComment =
     (report?.gap_summary && report.gap_summary.trim()) ||
