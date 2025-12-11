@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_VERSION: '20.x'
-  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL_MAIN }}
 
 jobs:
   build-and-deploy:
