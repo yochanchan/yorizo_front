@@ -1,0 +1,49 @@
+name: Deploy Yorizo Frontend to Azure Web App
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build
+        run: npm run build
+
+      # Next.js を Azure に配布する zip に固める
+      - name: Prepare artifact
+        run: zip -r release.zip .next public package.json next.config.mjs node_modules
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'arimakinen-or-die-app-frontend'   # ← publish profile 内 msdeploySite / userName と一致
+          slot-name: 'production'                      # ← スロット未使用なので production を明示
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: release.zip
+          clean: true   # ★追加
+
