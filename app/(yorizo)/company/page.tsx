@@ -9,10 +9,10 @@ const USER_ID = "demo-user"
 
 const industries = ["飲食", "小売", "サービス", "製造", "IT/DX", "建設", "その他"]
 const businessTypes = ["株式会社", "合同会社", "個人事業主", "その他"]
-const employeeRanges = ["〜5名", "6〜20名", "21〜50名", "51名〜"]
-const salesRanges = ["〜3,000万円", "3,000万〜1億円", "1〜5億円", "5億円〜"]
-const ageRanges = ["30代", "40代", "50代", "60代", "それ以降"]
-const mainConcerns = ["売上", "資金繰り", "人材", "業務効率化", "その他"]
+const employeeRanges = ["1-5名", "6-20名", "21-50名", "51名以上"]
+const salesRanges = ["〜3,000万円", "3,000万〜1億円", "1億〜5億円", "5億円以上"]
+const ageRanges = ["30代", "40代", "50代", "60代", "それ以外"]
+const mainConcerns = ["売上", "資金繰り", "人材", "業務効率", "その他"]
 
 export default function CompanyPage() {
   const router = useRouter()
@@ -23,10 +23,8 @@ export default function CompanyPage() {
     annual_sales_range: "",
     location_prefecture: "",
     years_in_business: undefined,
-  })
-  const [extra, setExtra] = useState({
     business_type: "",
-    founded_year: "",
+    founded_year: undefined,
     city: "",
     main_bank: "",
     has_loan: "",
@@ -50,6 +48,14 @@ export default function CompanyPage() {
             annual_sales_range: data.annual_sales_range ?? "",
             location_prefecture: data.location_prefecture ?? "",
             years_in_business: data.years_in_business ?? undefined,
+            business_type: data.business_type ?? "",
+            founded_year: data.founded_year ?? undefined,
+            city: data.city ?? "",
+            main_bank: data.main_bank ?? "",
+            has_loan: data.has_loan ?? "",
+            has_rent: data.has_rent ?? "",
+            owner_age: data.owner_age ?? "",
+            main_concern: data.main_concern ?? "",
           })
         }
       } catch (err) {
@@ -135,8 +141,8 @@ export default function CompanyPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">事業形態</label>
                   <select
-                    value={extra.business_type}
-                    onChange={(e) => setExtra((prev) => ({ ...prev, business_type: e.target.value }))}
+                    value={profile.business_type ?? ""}
+                    onChange={(e) => setProfile((prev) => ({ ...prev, business_type: e.target.value }))}
                     className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
                   >
                     <option value="">選択してください</option>
@@ -153,8 +159,10 @@ export default function CompanyPage() {
                   <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">設立年 / 創業年</label>
                   <input
                     type="number"
-                    value={extra.founded_year}
-                    onChange={(e) => setExtra((prev) => ({ ...prev, founded_year: e.target.value }))}
+                    value={profile.founded_year ?? ""}
+                    onChange={(e) =>
+                      setProfile((prev) => ({ ...prev, founded_year: e.target.value ? Number(e.target.value) : undefined }))
+                    }
                     className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
                     placeholder="2005"
                   />
@@ -172,8 +180,8 @@ export default function CompanyPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">所在地（市区町村など）</label>
                 <input
-                  value={extra.city}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, city: e.target.value }))}
+                  value={profile.city ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, city: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
                   placeholder="新宿区..."
                 />
@@ -200,7 +208,7 @@ export default function CompanyPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">年商（売上規模）</label>
+                <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">年商・売上規模</label>
                 <select
                   value={profile.annual_sales_range ?? ""}
                   onChange={(e) => setProfile((prev) => ({ ...prev, annual_sales_range: e.target.value }))}
@@ -223,8 +231,8 @@ export default function CompanyPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">メインバンク</label>
                 <input
-                  value={extra.main_bank}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, main_bank: e.target.value }))}
+                  value={profile.main_bank ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, main_bank: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
                   placeholder="〇〇銀行"
                 />
@@ -232,8 +240,8 @@ export default function CompanyPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">借入の有無</label>
                 <select
-                  value={extra.has_loan}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, has_loan: e.target.value }))}
+                  value={profile.has_loan ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, has_loan: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
                 >
                   <option value="">選択してください</option>
@@ -242,10 +250,10 @@ export default function CompanyPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">賃料や家賃の有無</label>
+                <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">家賃・地代の有無</label>
                 <select
-                  value={extra.has_rent}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, has_rent: e.target.value }))}
+                  value={profile.has_rent ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, has_rent: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
                 >
                   <option value="">選択してください</option>
@@ -262,8 +270,8 @@ export default function CompanyPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">経営者の年代</label>
                 <select
-                  value={extra.owner_age}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, owner_age: e.target.value }))}
+                  value={profile.owner_age ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, owner_age: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
                 >
                   <option value="">選択してください</option>
@@ -277,8 +285,8 @@ export default function CompanyPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--yori-ink-strong)]">主な経営の悩み</label>
                 <select
-                  value={extra.main_concern}
-                  onChange={(e) => setExtra((prev) => ({ ...prev, main_concern: e.target.value }))}
+                  value={profile.main_concern ?? ""}
+                  onChange={(e) => setProfile((prev) => ({ ...prev, main_concern: e.target.value }))}
                   className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm"
                 >
                   <option value="">選択してください</option>
