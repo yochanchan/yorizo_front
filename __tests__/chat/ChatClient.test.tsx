@@ -45,7 +45,6 @@ describe("ChatClient", () => {
       reply: "こんにちは、どんな状況ですか？",
       question: "次に気になっていることを教えてください。",
       options: [],
-      cta_buttons: [],
       allow_free_text: true,
       step: 2,
       done: false,
@@ -88,7 +87,6 @@ describe("ChatClient", () => {
       reply: "このあと改善案をまとめます。",
       question: "",
       options: [],
-      cta_buttons: [],
       allow_free_text: true,
       step: 2,
       done: false,
@@ -111,13 +109,11 @@ describe("ChatClient", () => {
     })
   })
 
-  it("does not render CTA buttons even when response includes cta_buttons", async () => {
     mockedGuidedChatTurn.mockResolvedValue({
       conversation_id: "cta-1",
       reply: "CTA is kept in the API response only.",
       question: "What would you like to do next?",
       options: [],
-      cta_buttons: [{ id: "homework", label: "宿題を作成する", action: "open_homework" }],
       allow_free_text: true,
       step: 2,
       done: false,

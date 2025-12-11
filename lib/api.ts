@@ -18,18 +18,11 @@ export type ChatTurnRequest = {
   category?: string
 }
 
-export type ChatCTAButton = {
-  id: string
-  label: string
-  action: string
-}
-
 export type ChatTurnResponse = {
   conversation_id: string
   reply: string
   question: string
   options: ChatOption[]
-  cta_buttons?: ChatCTAButton[]
   allow_free_text: boolean
   step: number
   done: boolean
