@@ -14,10 +14,6 @@ concurrency:
   group: deploy-frontend
   cancel-in-progress: true
 
-defaults:
-  run:
-    working-directory: frontend
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -26,19 +22,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Detect app dir
+        id: appdir
+        shell: bash
+        run: |
+          set -e
+          echo "PWD=$(pwd)"
+          ls -la
+          if [ -f "frontend/package.json" ]; then
+            echo "dir=frontend" >> $GITHUB_OUTPUT
+            echo "Using frontend/"
+          elif [ -f "package.json" ]; then
+            echo "dir=." >> $GITHUB_OUTPUT
+            echo "Using repo root"
+          else
+            echo "ERROR: package.json not found (root or frontend/)"
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+        working-directory: ${{ steps.appdir.outputs.dir }}
 
       - name: Build (verification)
         run: npm run build
+        working-directory: ${{ steps.appdir.outputs.dir }}
 
       - name: Remove build artifacts and node_modules before deploy
         run: rm -rf node_modules .next
+        working-directory: ${{ steps.appdir.outputs.dir }}
 
       - name: Apply App Service settings
         uses: azure/appservice-settings@v1
@@ -56,8 +77,8 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'yorizo-app-frontend'   # ← publish profile の msdeploySite / userName と一致
-          slot-name: 'production'           # スロット未使用のため production を指定
+          app-name: 'yorizo-app-frontend'
+          slot-name: 'production'
           publish-profile: ${{ secrets.PUBLISH_PROFILE_YORIZO_FRONTEND_MAIN }}
-          package: .
+          package: ${{ steps.appdir.outputs.dir }}
           clean: true
