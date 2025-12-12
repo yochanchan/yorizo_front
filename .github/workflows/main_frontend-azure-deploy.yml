@@ -22,11 +22,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure Login (for app settings)
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Detect app dir
         id: appdir
         shell: bash
@@ -62,23 +57,9 @@ jobs:
         run: npm run build
         working-directory: ${{ steps.appdir.outputs.dir }}
 
-      - name: Remove build artifacts and node_modules before deploy
-        run: rm -rf node_modules .next
+      - name: Prepare artifact
+        run: zip -r release.zip .next public package.json next.config.mjs node_modules
         working-directory: ${{ steps.appdir.outputs.dir }}
-
-      - name: Apply App Service settings
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: 'yorizo-app-frontend'
-          slot-name: 'production'
-          app-settings-json: |
-            [
-              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true" },
-              { "name": "ENABLE_ORYX_BUILD", "value": "true" },
-              { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "1" },
-              { "name": "WEBSITES_CONTAINER_START_TIME_LIMIT", "value": "600" }
-            ]
-          mask-inputs: true
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
@@ -86,5 +67,5 @@ jobs:
           app-name: 'yorizo-app-frontend'
           slot-name: 'production'
           publish-profile: ${{ secrets.PUBLISH_PROFILE_YORIZO_FRONTEND_MAIN }}
-          package: ${{ steps.appdir.outputs.dir }}
+          package: ${{ steps.appdir.outputs.dir }}/release.zip
           clean: true
