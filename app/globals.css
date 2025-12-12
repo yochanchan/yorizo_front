@@ -134,4 +134,84 @@ a {
     border-radius: var(--yori-radius-pill);
     border: 1px dashed var(--yori-outline);
   }
+
+  /* Report-specific readability tweaks */
+  .yori-report {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--yori-ink);
+    --yori-line-strong: #c7e3f1;
+    --yori-line-strong-2: #b7d8ec;
+    --yori-outline: var(--yori-outline);
+  }
+
+  @supports (color: color-mix(in srgb, white, black)) {
+    .yori-report {
+      --yori-line-strong: color-mix(in srgb, var(--yori-tertiary) 82%, var(--yori-ink-strong) 18%);
+      --yori-line-strong-2: color-mix(in srgb, var(--yori-tertiary) 72%, var(--yori-ink-strong) 28%);
+    }
+  }
+
+  .yori-report p,
+  .yori-report li,
+  .yori-report span,
+  .yori-report button,
+  .yori-report input,
+  .yori-report textarea {
+    line-height: 1.7;
+  }
+
+  .yori-report .text-\[11px\] {
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+
+  .yori-report .text-\[10px\] {
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .yori-report .text-xs {
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .yori-report .text-sm {
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+
+  .yori-report .text-base {
+    line-height: 1.75;
+  }
+
+  .yori-report .leading-relaxed {
+    line-height: 1.75;
+  }
+
+  .yori-report table {
+    border-collapse: collapse;
+  }
+
+  .yori-report table thead tr {
+    border-bottom: 1px solid var(--yori-line-strong-2);
+  }
+
+  .yori-report table tbody tr {
+    border-top: 1px solid var(--yori-line-strong-2);
+  }
+
+  .yori-report table th,
+  .yori-report table td {
+    padding: 0.85rem 1rem;
+  }
+
+  .yori-report .yori-card,
+  .yori-report .yori-pill {
+    border-color: var(--yori-line-strong);
+  }
+
+  .yori-report .divide-y > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--yori-line-strong-2);
+  }
 }

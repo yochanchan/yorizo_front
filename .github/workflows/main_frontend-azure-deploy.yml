@@ -41,7 +41,7 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'yorizo_app_frontend'   # ← publish profile 内 msdeploySite / userName と一致
+          app-name: 'yorizo-app-frontend'   # ← publish profile 内 msdeploySite / userName と一致
           slot-name: 'production'                      # ← スロット未使用なので production を明示
           publish-profile: ${{ secrets.PUBLISH_PROFILE_YORIZO_FRONTEND_MAIN }}
           package: release.zip

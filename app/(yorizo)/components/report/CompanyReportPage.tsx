@@ -215,7 +215,7 @@ function AccordionSection({ title, summary, children, defaultOpen = false }: Acc
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-0.5 inline-flex items-center rounded-full border border-sky-100 bg-sky-50/70 px-2.5 py-1 text-[11px] md:text-xs font-semibold text-sky-600 hover:bg-sky-50"
+          className="mt-0.5 inline-flex items-center rounded-full border border-[color:var(--yori-line-strong)] bg-sky-50/70 px-2.5 py-1 text-[11px] md:text-xs font-semibold text-sky-600 hover:bg-sky-50"
         >
           {open ? "閉じる ▲" : "開く ▼"}
         </button>
@@ -242,7 +242,7 @@ function ExpandableSectionBody({ children, initialLines = 3 }: ExpandableSection
         <div className={open ? "text-sm leading-relaxed text-slate-700" : `text-sm leading-relaxed text-slate-700 ${clampClass}`}>
           {children}
         </div>
-        <div className="mt-2 border-t border-sky-50 pt-2 flex justify-end">
+        <div className="mt-2 border-t border-[color:var(--yori-line-strong-2)] pt-2 flex justify-end">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -261,7 +261,7 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
   // periods expected with score (0-5); None treated as 0
   if (!periods?.length) {
     return (
-      <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+      <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
         まだ決算書が登録されていないため、レーダーチャートを表示できません。
       </div>
     )
@@ -345,13 +345,13 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
 function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"]["periods"]; axes: string[] }) {
   if (!periods?.length) {
     return (
-      <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+      <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
         まだ決算書が登録されていないため、イマココレポートを表示できません。
       </div>
     )
   }
   return (
-    <div className="overflow-auto rounded-xl border border-[var(--yori-outline)] bg-white">
+    <div className="overflow-auto rounded-xl border border-[color:var(--yori-line-strong)] bg-white">
       <table className="min-w-full text-sm">
         <thead className="bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]">
           <tr>
@@ -365,7 +365,7 @@ function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
         </thead>
         <tbody>
           {axes.map((axis, rowIdx) => (
-            <tr key={axis} className="border-t border-[var(--yori-outline)]">
+            <tr key={axis} className="border-t border-[color:var(--yori-line-strong-2)]">
               <td className="px-3 py-2 font-semibold text-[var(--yori-ink-strong)]">{axis}</td>
               {periods.map((p) => (
                 <td key={`${axis}-${p.label}`} className="px-3 py-2 text-[var(--yori-ink)]">
@@ -395,8 +395,8 @@ const KpiAccordionItem = ({ title, summary, body, isOpen, onToggle }: KpiAccordi
       type="button"
       onClick={onToggle}
       className={clsx(
-        "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors",
-        "bg-[#F3FAFF] border-[#D8EDF8]",
+        "flex w-full items-center justify-between rounded-2xl border border-[color:var(--yori-line-strong)] px-4 py-3 text-left transition-colors",
+        "bg-[#F3FAFF]",
         isOpen && "bg-[#E4F3FF]",
       )}
     >
@@ -507,7 +507,7 @@ export default function CompanyReportPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="yori-report flex flex-col gap-6">
       <header className="yori-card-muted p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]">
@@ -552,7 +552,7 @@ export default function CompanyReportPage() {
           <section className="yori-card rounded-3xl p-3 md:p-4 mt-3">
             <h2 className="text-xs md:text-sm font-semibold text-slate-800 mb-2">経営バランス診断</h2>
             {isNoRadarData ? (
-              <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+              <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
                 決算書のデータが不足しているため、レーダーチャートを表示できません。
               </div>
             ) : (
@@ -572,7 +572,7 @@ export default function CompanyReportPage() {
                 </div>
                 <div className="space-y-3">
                   <ValueTable periods={periods} axes={axes} />
-                  <div className="mt-4 rounded-2xl bg-white/70 border border-sky-50 p-3 md:p-4">
+                  <div className="mt-4 rounded-2xl bg-white/70 border border-[color:var(--yori-line-strong-2)] p-3 md:p-4">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-slate-800">指標の見方</h3>
                       <p className="text-[11px] text-slate-400">（タップすると詳しい説明が開きます）</p>
@@ -733,7 +733,7 @@ export default function CompanyReportPage() {
             <AccordionSection title="企業の特徴" summary={qualitativeSummary}>
               <div className="grid gap-3 md:grid-cols-2">
                 {qualitativeSections.map(({ title, data }) => (
-                  <div key={title} className="rounded-2xl bg-white/80 p-3 border border-sky-50">
+                  <div key={title} className="rounded-2xl bg-white/80 p-3 border border-[color:var(--yori-line-strong-2)]">
                     <p className="text-xs font-semibold text-slate-800 mb-1">{title}</p>
                     {data && Object.keys(data).length > 0 ? (
                       <ul className="space-y-1 text-xs md:text-sm text-slate-700">

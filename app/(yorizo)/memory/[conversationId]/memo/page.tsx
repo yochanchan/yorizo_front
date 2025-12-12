@@ -74,7 +74,8 @@ export default function ConsultationMemoPage() {
   }, [memo])
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 pt-2 space-y-4">
+    <main className="w-full">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 flex flex-col flex-1 pb-24 pt-2 space-y-4">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -167,6 +168,7 @@ export default function ConsultationMemoPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </main>
   )
 }
