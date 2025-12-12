@@ -10,6 +10,10 @@ env:
   NODE_VERSION: '20.x'
   NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
 
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
