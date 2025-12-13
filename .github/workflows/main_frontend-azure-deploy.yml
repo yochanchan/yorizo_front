@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_VERSION: '20.x'
-  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+  NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL_MAIN }}
 
 concurrency:
   group: deploy-frontend
@@ -64,8 +64,8 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'yorizo-app-frontend'
-          slot-name: 'production'
+          app-name: 'yorizo-app-frontend'   # ← publish profile 内 msdeploySite / userName と一致
+          slot-name: 'production'                      # ← スロット未使用なので production を明示
           publish-profile: ${{ secrets.PUBLISH_PROFILE_YORIZO_FRONTEND_MAIN }}
           package: ${{ steps.appdir.outputs.dir }}/release.zip
           clean: true
