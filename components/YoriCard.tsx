@@ -88,9 +88,9 @@ export function YoriCard({
 
   const content = (
     <div className={clsx("flex items-center gap-3", variant === "info" ? "justify-start" : "justify-between")}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-1 min-w-0">
         {icon && <div className="mt-0.5 text-[var(--yori-ink-strong)]">{icon}</div>}
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1 min-w-0">
           {eyebrow && <p className="text-[11px] font-semibold text-[var(--yori-ink-soft)]">{eyebrow}</p>}
           <p
             className={clsx(

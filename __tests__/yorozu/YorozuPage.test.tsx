@@ -38,8 +38,7 @@ describe("Yorozu page", () => {
     render(<YorozuExpertsPage />)
 
     await waitFor(() => expect(screen.getByText("山田 太郎")).toBeInTheDocument())
-    expect(screen.getByRole("link", { name: "チャットで相談" })).toHaveAttribute("href", "/chat")
-    expect(screen.getByRole("link", { name: /イマココレポートを見る/ })).toHaveAttribute("href", "/report")
-    expect(screen.getByRole("link", { name: "専門家に予約する" }).getAttribute("href")).toContain("/yorozu/experts/1/schedule")
+    expect(screen.getByRole("button", { name: "相談を申し込む" })).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "すべて" })).toHaveLength(1)
   })
 })

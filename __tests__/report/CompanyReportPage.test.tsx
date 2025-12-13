@@ -37,6 +37,16 @@ const mockReport: CompanyReport = {
 }
 
 describe("CompanyReportPage", () => {
+  beforeAll(() => {
+    // Recharts depends on ResizeObserver; stub it for jsdom.
+    // @ts-expect-error jsdom missing ResizeObserver
+    global.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -48,9 +58,8 @@ describe("CompanyReportPage", () => {
     await waitFor(() => expect(getCompanyReport).toHaveBeenCalled())
 
     expect(screen.getByText("イマココレポート")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "チャットを再開" })).toHaveAttribute("href", "/chat")
-    expect(screen.getByRole("link", { name: /ToDoを確認/ })).toHaveAttribute("href", "/homework")
-    expect(screen.getByRole("link", { name: "専門家に相談" })).toHaveAttribute("href", "/yorozu")
+    expect(screen.getByRole("button", { name: "よろず支援拠点に相談する" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "もう一度タイプ診断する" })).toBeInTheDocument()
   })
 
   it("shows the thinking row during report loading", async () => {
