@@ -21,8 +21,8 @@ async function fetchLatestConversation(): Promise<ConversationSummary | null> {
 
 export default async function HomePage() {
   const latestConversation = await fetchLatestConversation()
-  const memoLink = latestConversation ? `/report/${latestConversation.id}` : null
-  const pastConversationLink = memoLink ?? "/memory"
+  const memoLink = latestConversation ? `/memory/${latestConversation.id}/memo` : null
+  const pastConversationLink = "/memory/history"
 
   return (
     <div className="flex flex-col gap-6 md:gap-8 py-4 pb-4">
@@ -74,7 +74,7 @@ export default async function HomePage() {
         <YoriCard
           variant="link"
           title="相談メモを開く"
-          description="最新の相談メモやレポートを開きます"
+          description="最新の相談メモを開きます"
           href={memoLink ?? "/memory"}
           icon={<FileText className="h-5 w-5" />}
         >

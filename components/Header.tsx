@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Settings } from "lucide-react"
@@ -32,9 +33,14 @@ export function Header({ title, showBackButton }: HeaderProps) {
             <YorizoAvatar size="sm" />
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-semibold text-[var(--yori-ink-soft)]">経営コンシェルジュ</span>
-              <span className="text-xl font-bold tracking-tight text-[var(--yori-ink-strong)] group-hover:opacity-90 transition-opacity">
-                Yorizo
-              </span>
+              <Image
+                src="/logos/YorizoLogo.png"
+                alt="Yorizo"
+                width={271}
+                height={82}
+                className="h-6 w-auto max-w-[80px] origin-top-left transition-opacity"
+                priority
+              />
               {title && <span className="text-[11px] text-[var(--yori-ink-soft)]">{title}</span>}
             </div>
           </Link>

@@ -134,10 +134,10 @@ export default async function MemoryPage() {
                 <ChevronRight className="h-4 w-4" />
               </Link>
               <Link
-                href={`/report/${latestConversation.id}`}
+                href={`/memory/${latestConversation.id}/memo`}
                 className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold md:text-sm"
               >
-                レポートを見る
+                相談メモを見る
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
