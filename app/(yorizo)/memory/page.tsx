@@ -56,7 +56,7 @@ export default async function MemoryPage() {
 
   const stats = [
     { label: "相談数", value: `${conversations.length}件` },
-    { label: "未完了の宿題", value: `${pendingHomework.length}件` },
+    { label: "未完了のToDo", value: `${pendingHomework.length}件` },
     { label: "保存ドキュメント", value: `${documentsCount}件` },
   ]
 
@@ -69,7 +69,7 @@ export default async function MemoryPage() {
             <div className="space-y-1">
               <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">Yorizo の記録</p>
               <p className="text-sm text-[var(--yori-ink)] leading-relaxed">
-                これまでの相談内容や会社の情報、宿題をまとめて振り返れます。次に進む前に「どこまで話したか」を整理しましょう。
+                これまでの相談内容や会社の情報、ToDoをまとめて振り返れます。次に進む前に「どこまで話したか」を整理しましょう。
               </p>
             </div>
           </div>
@@ -80,7 +80,7 @@ export default async function MemoryPage() {
         <YoriCard variant="primaryLink" title="チャットを再開する" href="/chat" icon={<MessageCircle className="h-5 w-5" />} />
         <YoriCard
           variant="link"
-          title="宿題を確認"
+          title="ToDoを確認"
           description="未完了タスクをチェックして次の一歩を決める"
           href="/homework"
           icon={<NotebookPen className="h-5 w-5" />}
@@ -124,7 +124,7 @@ export default async function MemoryPage() {
             description={latestConversation.dateLabel || "最新の相談"}
             icon={<LineChart className="h-5 w-5" />}
           >
-            <p className="text-xs text-[var(--yori-ink-soft)]">相談メモと宿題のまとめを開きます。</p>
+            <p className="text-xs text-[var(--yori-ink-soft)]">相談メモとToDoのまとめを開きます。</p>
             <div className="flex flex-wrap gap-2 pt-2">
               <Link
                 href={`/chat?conversationId=${latestConversation.id}`}

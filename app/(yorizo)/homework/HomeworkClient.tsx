@@ -10,6 +10,17 @@ type Props = {
   initialDone: HomeworkTask[]
 }
 
+const parseHomeworkDetail = (detail?: string | null): { summary: string | null; steps: string[] } => {
+  if (!detail) return { summary: null, steps: [] }
+  const lines = detail.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const steps = lines
+    .filter((l) => /^[-・●]/.test(l))
+    .map((l) => l.replace(/^[-・●]\s*/, "").replace(/^\[?\]?\s*/, "").trim())
+    .filter(Boolean)
+  const summary = lines.find((l) => !/^[-・●]/.test(l)) || null
+  return { summary, steps }
+}
+
 export function HomeworkClient({ initialPending, initialDone }: Props) {
   const [pendingTasks, setPendingTasks] = useState<HomeworkTask[]>(initialPending)
   const [doneTasks, setDoneTasks] = useState<HomeworkTask[]>(initialDone)
@@ -46,6 +57,7 @@ export function HomeworkClient({ initialPending, initialDone }: Props) {
   }
 
   const renderTaskCard = (task: HomeworkTask, isDone: boolean) => {
+    const { summary, steps } = parseHomeworkDetail(task.detail)
     return (
       <div
         key={task.id}
@@ -58,7 +70,7 @@ export function HomeworkClient({ initialPending, initialDone }: Props) {
             <p className={`text-sm font-semibold ${isDone ? "text-slate-600 line-through" : "text-slate-800"}`}>
               {task.title}
             </p>
-            {task.detail && <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-3">{task.detail}</p>}
+            {summary && <p className="text-xs text-slate-600 mt-1 leading-relaxed">{summary}</p>}
           </div>
           <button
             type="button"
@@ -78,64 +90,83 @@ export function HomeworkClient({ initialPending, initialDone }: Props) {
               {task.category}
             </span>
           )}
+          {task.timeframe && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 border border-sky-100 px-2 py-0.5">
+              期限目安: {task.timeframe}
+            </span>
+          )}
           {task.due_date && (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5">
               <CalendarDays className="h-3 w-3" />
               期限: {task.due_date}
             </span>
           )}
-          {!task.due_date && <span className="px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200">期限なし</span>}
+          {!task.due_date && !task.timeframe && (
+            <span className="px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200">期限なし</span>
+          )}
         </div>
+        {steps.length > 0 && (
+          <ul className="space-y-1 text-xs text-slate-700">
+            {steps.map((step, idx) => (
+              <li key={`${task.id}-step-${idx}`} className="flex items-start gap-2">
+                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-slate-300" />
+                <span>{step}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {task.conversation_id && <p className="text-[11px] text-slate-500">会話ID: {task.conversation_id}</p>}
       </div>
     )
   }
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 pt-4 space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-[var(--yori-ink-soft)]">宿題</p>
-          <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">やることリスト</h1>
-          <p className="text-sm text-[var(--yori-ink)]">チャットから出てきた宿題をここで管理します。</p>
-        </div>
-        <div className="text-right text-xs text-[var(--yori-ink-soft)]">
-          <p className="font-semibold text-[var(--yori-ink-strong)]">{summary.doneCount} / {summary.total} 完了</p>
-          <p className="text-[11px]">達成率 {summary.percent}%</p>
-        </div>
-      </div>
-
-      {error && <p className="text-xs text-rose-600">{error}</p>}
-
-      <section className="space-y-2">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
-          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">進行中</p>
-        </div>
-        <div className="space-y-2">
-          {pendingTasks.length === 0 && <p className="text-xs text-[var(--yori-ink-soft)]">未完了の宿題はありません。</p>}
-          {pendingTasks.map((task) => renderTaskCard(task, false))}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <button
-          type="button"
-          onClick={() => setShowDone((prev) => !prev)}
-          className="flex items-center justify-between w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)]"
-        >
-          <span>完了済み</span>
-          {showDone ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
-        {showDone && (
-          <div className="space-y-2">
-            {doneTasks.length === 0 && (
-              <p className="text-xs text-[var(--yori-ink-soft)]">完了済みの宿題はありません。</p>
-            )}
-            {doneTasks.map((task) => renderTaskCard(task, true))}
+    <main className="w-full">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 flex flex-col flex-1 pb-24 pt-4 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-[var(--yori-ink-soft)]">ToDo</p>
+            <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">やることリスト</h1>
+            <p className="text-sm text-[var(--yori-ink)]">チャットで決めたToDoをここでまとめて見られます。</p>
           </div>
-        )}
-      </section>
-    </div>
+          <div className="text-right text-xs text-[var(--yori-ink-soft)]">
+            <p className="font-semibold text-[var(--yori-ink-strong)]">
+              {summary.doneCount} / {summary.total} 完了
+            </p>
+            <p className="text-[11px]">達成率 {summary.percent}%</p>
+          </div>
+        </div>
+
+        {error && <p className="text-xs text-rose-600">{error}</p>}
+
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+            <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">進行中</p>
+          </div>
+          <div className="space-y-2">
+            {pendingTasks.length === 0 && <p className="text-xs text-[var(--yori-ink-soft)]">未完了のToDoはありません。</p>}
+            {pendingTasks.map((task) => renderTaskCard(task, false))}
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowDone((prev) => !prev)}
+            className="flex items-center justify-between w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)]"
+          >
+            <span>完了したToDo</span>
+            {showDone ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showDone && (
+            <div className="space-y-2">
+              {doneTasks.length === 0 && <p className="text-xs text-[var(--yori-ink-soft)]">完了済みのToDoはありません。</p>}
+              {doneTasks.map((task) => renderTaskCard(task, true))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
   )
 }

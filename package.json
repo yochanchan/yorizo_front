@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p $PORT",
+    "start": "node -e \"const p=process.env.PORT||8080; require('child_process').spawn('node',['node_modules/next/dist/bin/next','start','-H','0.0.0.0','-p',String(p)],{stdio:'inherit'});\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "jest",

@@ -27,7 +27,7 @@ export default async function ConsultantDashboardPage({ params }: Props) {
             <p className="text-xs text-slate-500">相談員ダッシュボード</p>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">担当スケジュールとカルテ</h1>
             <p className="text-sm text-slate-600">
-              あなたが担当する予約のみを表示しています。カレンダーから選択すると、会話要約や宿題を確認できます。
+              あなたが担当する予約のみを表示しています。カレンダーから選択すると、会話要約やToDoを確認できます。
             </p>
           </div>
           <Link

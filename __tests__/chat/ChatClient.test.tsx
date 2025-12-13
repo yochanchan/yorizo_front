@@ -28,10 +28,10 @@ const mockedGetConversationDetail = getConversationDetail as jest.MockedFunction
 
 beforeAll(() => {
   if (!(global as any).crypto) {
-    ;(global as any).crypto = require("crypto").webcrypto
+    ; (global as any).crypto = require("crypto").webcrypto
   }
   if (!(global as any).crypto.randomUUID) {
-    ;(global as any).crypto.randomUUID = () => "test-uuid"
+    ; (global as any).crypto.randomUUID = () => "test-uuid"
   }
 })
 
@@ -222,5 +222,6 @@ describe("ChatClient", () => {
     await waitFor(() => {
       expect(screen.getByText(LLM_FALLBACK_MESSAGE)).toBeInTheDocument()
     })
+    expect(screen.queryByRole("button", { name: /ToDoを作成する/ })).toBeNull()
   })
 })

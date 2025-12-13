@@ -16,13 +16,14 @@ import {
 } from "recharts"
 
 import { ThinkingRow } from "@/components/ThinkingRow"
-import { getCompanyReport, listDocuments, type CompanyReport, type DocumentItem } from "@/lib/api"
+import { ApiError, createHomework, getCompanyReport, listDocuments, type CompanyReport, type DocumentItem } from "@/lib/api"
 import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
 import { PrimaryCtaButton } from "@/components/ui/PrimaryCtaButton"
 import { SoftPillButton } from "@/components/ui/SoftPillButton"
 
 const COMPANY_ID = "1"
 const COMPANY_PROFILE_ID = "demo-user"
+const USER_ID = COMPANY_PROFILE_ID
 
 const KPI_AXES = ["売上持続性", "収益性", "健全性", "効率性", "安全性"]
 const AXIS_KEY_MAP: Record<string, KpiKey> = {
@@ -65,6 +66,16 @@ type CompanyReportWithKpi = CompanyReport & {
     axes: string[]
     periods: KpiPeriodDto[]
   }
+}
+
+type TodoSuggestion = {
+  id: string
+  title: string
+  timeframe: string
+  dueDate: string | null
+  steps: string[]
+  category: string
+  detail: string
 }
 
 export const KPI_DEFINITIONS: KpiDefinition[] = [
@@ -158,6 +169,93 @@ const splitTodoItems = (raw?: string | null): string[] => {
     .filter(Boolean)
 }
 
+const formatDateInput = (daysFromNow: number): string => {
+  const d = new Date()
+  d.setDate(d.getDate() + daysFromNow)
+  return d.toISOString().slice(0, 10)
+}
+
+const TODO_TEMPLATES: Array<{
+  match: RegExp
+  timeframe: string
+  dueInDays: number
+  category: string
+  steps: string[]
+}> = [
+  {
+    match: /(sns|インスタ|twitter|x|投稿|リール|ショート)/i,
+    timeframe: "今週中",
+    dueInDays: 7,
+    category: "SNS改善",
+    steps: [
+      "投稿テーマを3つ決めましょう",
+      "参考投稿を3つ見て良い例を保存",
+      "テンプレを1つ作って使い回す",
+      "3本の下書きを書いてみましょう",
+      "ハッシュタグと導線を決める",
+      "投稿を予約するか予定を組む",
+      "反応を1日1回見てメモする",
+    ],
+  },
+  {
+    match: /(価格|単価|値上げ|プロモ|キャンペーン|販促)/i,
+    timeframe: "2週間以内",
+    dueInDays: 14,
+    category: "価格/販促",
+    steps: [
+      "主力3品の原価と粗利を見る",
+      "値上げを+5%で試算してみる",
+      "競合の価格を3つ調べる",
+      "小さく試す案（商品/時間）を決める",
+      "お知らせ文面を下書きする",
+      "記録用のシートを作って数字を見る",
+    ],
+  },
+  {
+    match: /(在庫|キャッシュ|資金繰り|回収|支払い|入金|仕入)/i,
+    timeframe: "1ヶ月以内",
+    dueInDays: 28,
+    category: "資金繰り/在庫",
+    steps: [
+      "30日分の入出金を書き出す",
+      "回収が遅い先に連絡案を書く",
+      "動きの遅い在庫を3つ決める",
+      "仕入先1社に条件相談を打診する",
+      "資金繰りカレンダーを作る",
+      "不足しそうな日をチェックする",
+      "必要なら短期資金の選択肢を調べる",
+    ],
+  },
+]
+
+const DEFAULT_TODO_TEMPLATE = {
+  timeframe: "今週中",
+  dueInDays: 7,
+  category: "優先タスク",
+  steps: [
+    "ゴールを1文で書き出す（何ができれば完了か）",
+    "今日できる最小ステップを1つ決める",
+    "30分〜1時間の作業枠をカレンダーに入れる",
+    "完了のチェックポイントをメモする",
+    "作業後に振り返りメモを残す",
+  ],
+}
+
+const buildTodoSuggestion = (title: string, id: string): TodoSuggestion => {
+  const template = TODO_TEMPLATES.find((t) => t.match.test(title)) ?? DEFAULT_TODO_TEMPLATE
+  const dueDate = template.dueInDays ? formatDateInput(template.dueInDays) : null
+  const detailLines = [`【期限目安】${template.timeframe}${dueDate ? `（${dueDate}）` : ""}`, ...template.steps.map((s) => `- ${s}`)]
+  return {
+    id,
+    title,
+    timeframe: template.timeframe,
+    dueDate,
+    steps: template.steps,
+    category: template.category,
+    detail: detailLines.join("\n"),
+  }
+}
+
 const formatKpiValue = (key: KpiKey, raw: number | null | undefined): string => {
   if (raw == null || Number.isNaN(raw)) {
     return "データなし"
@@ -215,7 +313,7 @@ function AccordionSection({ title, summary, children, defaultOpen = false }: Acc
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-0.5 inline-flex items-center rounded-full border border-sky-100 bg-sky-50/70 px-2.5 py-1 text-[11px] md:text-xs font-semibold text-sky-600 hover:bg-sky-50"
+          className="mt-0.5 inline-flex items-center rounded-full border border-[color:var(--yori-line-strong)] bg-sky-50/70 px-2.5 py-1 text-[11px] md:text-xs font-semibold text-sky-600 hover:bg-sky-50"
         >
           {open ? "閉じる ▲" : "開く ▼"}
         </button>
@@ -242,7 +340,7 @@ function ExpandableSectionBody({ children, initialLines = 3 }: ExpandableSection
         <div className={open ? "text-sm leading-relaxed text-slate-700" : `text-sm leading-relaxed text-slate-700 ${clampClass}`}>
           {children}
         </div>
-        <div className="mt-2 border-t border-sky-50 pt-2 flex justify-end">
+        <div className="mt-2 border-t border-[color:var(--yori-line-strong-2)] pt-2 flex justify-end">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -261,7 +359,7 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
   // periods expected with score (0-5); None treated as 0
   if (!periods?.length) {
     return (
-      <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+      <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
         まだ決算書が登録されていないため、レーダーチャートを表示できません。
       </div>
     )
@@ -345,13 +443,13 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
 function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"]["periods"]; axes: string[] }) {
   if (!periods?.length) {
     return (
-      <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+      <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
         まだ決算書が登録されていないため、イマココレポートを表示できません。
       </div>
     )
   }
   return (
-    <div className="overflow-auto rounded-xl border border-[var(--yori-outline)] bg-white">
+    <div className="overflow-auto rounded-xl border border-[color:var(--yori-line-strong)] bg-white">
       <table className="min-w-full text-sm">
         <thead className="bg-[var(--yori-secondary)] text-[var(--yori-ink-strong)]">
           <tr>
@@ -365,7 +463,7 @@ function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
         </thead>
         <tbody>
           {axes.map((axis, rowIdx) => (
-            <tr key={axis} className="border-t border-[var(--yori-outline)]">
+            <tr key={axis} className="border-t border-[color:var(--yori-line-strong-2)]">
               <td className="px-3 py-2 font-semibold text-[var(--yori-ink-strong)]">{axis}</td>
               {periods.map((p) => (
                 <td key={`${axis}-${p.label}`} className="px-3 py-2 text-[var(--yori-ink)]">
@@ -395,8 +493,8 @@ const KpiAccordionItem = ({ title, summary, body, isOpen, onToggle }: KpiAccordi
       type="button"
       onClick={onToggle}
       className={clsx(
-        "flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors",
-        "bg-[#F3FAFF] border-[#D8EDF8]",
+        "flex w-full items-center justify-between rounded-2xl border border-[color:var(--yori-line-strong)] px-4 py-3 text-left transition-colors",
+        "bg-[#F3FAFF]",
         isOpen && "bg-[#E4F3FF]",
       )}
     >
@@ -418,6 +516,11 @@ export default function CompanyReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [openKpiKey, setOpenKpiKey] = useState<KpiKey | null>("sales_sustainability")
   const [latestDocuments, setLatestDocuments] = useState<DocumentItem[]>([])
+  const [expandedTodoId, setExpandedTodoId] = useState<string | null>(null)
+  const [addingTodoId, setAddingTodoId] = useState<string | null>(null)
+  const [todoError, setTodoError] = useState<string | null>(null)
+  const [addedTodoIds, setAddedTodoIds] = useState<Record<string, boolean>>({})
+  const [todoSuccessId, setTodoSuccessId] = useState<string | null>(null)
 
   const fetchReport = async () => {
     setLoading(true)
@@ -498,6 +601,34 @@ export default function CompanyReportPage() {
   const futureSummary = summarizeOneLine(futureDetail || summaryComment)
   const parsedTodos = splitTodoItems(report?.action_plan || "")
   const todoItems = parsedTodos.length ? parsedTodos : topTodos.map((t) => t.title).filter(Boolean)
+  const todoSuggestions = useMemo(
+    () => todoItems.slice(0, 3).map((title, idx) => buildTodoSuggestion(title, `todo-${idx}`)),
+    [todoItems],
+  )
+
+  const handleAddHomework = async (todo: TodoSuggestion) => {
+    setTodoError(null)
+    setTodoSuccessId(null)
+    setAddingTodoId(todo.id)
+    try {
+      await createHomework({
+        user_id: USER_ID,
+        title: todo.title,
+        detail: todo.detail,
+        category: todo.category,
+        timeframe: todo.timeframe,
+        due_date: todo.dueDate ?? undefined,
+      })
+      setAddedTodoIds((prev) => ({ ...prev, [todo.id]: true }))
+      setTodoSuccessId(todo.id)
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "ToDoへの追加に失敗しました。時間をおいて再試行してください。"
+      setTodoError(message)
+    } finally {
+      setAddingTodoId(null)
+    }
+  }
 
   const qualitativeSections = [
     { title: "経営者の特徴", data: qualitative?.keieisha },
@@ -507,7 +638,7 @@ export default function CompanyReportPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="yori-report flex flex-col gap-6">
       <header className="yori-card-muted p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]">
@@ -525,7 +656,7 @@ export default function CompanyReportPage() {
         </div>
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">イマココレポート</h1>
-          <p className="text-sm text-[var(--yori-ink)]">チャット・宿題・PDFをまとめて“いま”を俯瞰します。次の一歩もここから。</p>
+          <p className="text-sm text-[var(--yori-ink)]">チャット・ToDo・PDFをまとめて“いま”を俯瞰します。次の一歩もここから。</p>
         </div>
       </header>
 
@@ -552,7 +683,7 @@ export default function CompanyReportPage() {
           <section className="yori-card rounded-3xl p-3 md:p-4 mt-3">
             <h2 className="text-xs md:text-sm font-semibold text-slate-800 mb-2">経営バランス診断</h2>
             {isNoRadarData ? (
-              <div className="rounded-xl border border-[var(--yori-outline)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
+              <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
                 決算書のデータが不足しているため、レーダーチャートを表示できません。
               </div>
             ) : (
@@ -572,7 +703,7 @@ export default function CompanyReportPage() {
                 </div>
                 <div className="space-y-3">
                   <ValueTable periods={periods} axes={axes} />
-                  <div className="mt-4 rounded-2xl bg-white/70 border border-sky-50 p-3 md:p-4">
+                  <div className="mt-4 rounded-2xl bg-white/70 border border-[color:var(--yori-line-strong-2)] p-3 md:p-4">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-slate-800">指標の見方</h3>
                       <p className="text-[11px] text-slate-400">（タップすると詳しい説明が開きます）</p>
@@ -613,22 +744,79 @@ export default function CompanyReportPage() {
             )}
           </section>
 
-          <section className="mt-3 space-y-3">
+                    <section className="mt-3 space-y-3">
             <div className="yori-card rounded-3xl p-3 md:p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs md:text-sm font-semibold text-slate-800">いま取り組みたい ToDo</h2>
                 <span className="text-[11px] md:text-xs text-slate-400">（3つまで表示）</span>
               </div>
-              <div className="space-y-1.5">
-                {todoItems.length > 0 ? (
-                  <ul className="space-y-1 text-xs md:text-sm text-slate-800 leading-relaxed">
-                    {todoItems.slice(0, 3).map((item, idx) => (
-                      <li key={`${item}-${idx}`} className="flex items-start gap-2">
-                        <span className="mt-0.5">✅</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+              <div className="space-y-2">
+                {todoSuggestions.length > 0 ? (
+                  todoSuggestions.map((todo) => (
+                    <div
+                      key={todo.id}
+                      className="rounded-2xl border border-[color:var(--yori-line-strong-2)] bg-white/80 px-3 py-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 text-slate-400">・</span>
+                          <span className="text-sm font-semibold text-[var(--yori-ink-strong)]">{todo.title}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTodoId((prev) => (prev === todo.id ? null : todo.id))}
+                          className="text-[11px] md:text-xs font-semibold text-sky-600 hover:text-sky-700"
+                        >
+                          {expandedTodoId === todo.id ? "閉じる" : "詳細"}
+                        </button>
+                      </div>
+
+                      {expandedTodoId === todo.id && (
+                        <div className="mt-2 space-y-2 text-xs md:text-sm text-[var(--yori-ink)] leading-relaxed">
+                          <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 border border-[color:var(--yori-line-strong-2)] px-2.5 py-1 text-[11px] md:text-xs text-slate-700">
+                              期限目安: {todo.timeframe}
+                              {todo.dueDate ? `（${todo.dueDate}）` : ""}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white border border-[color:var(--yori-line-strong-2)] px-2.5 py-1 text-[11px] md:text-xs text-slate-700">
+                              {todo.category}
+                            </span>
+                          </div>
+                          <ul className="space-y-1.5">
+                            {todo.steps.map((step, stepIdx) => (
+                              <li key={`${todo.id}-step-${stepIdx}`} className="flex items-start gap-2">
+                                <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-sky-300" />
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleAddHomework(todo)}
+                              disabled={addingTodoId === todo.id || addedTodoIds[todo.id]}
+                              className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--yori-primary)] px-3 py-2 text-xs font-semibold text-[var(--yori-primary-ink)] shadow-sm disabled:opacity-60"
+                            >
+                              {addedTodoIds[todo.id] ? "追加済み" : addingTodoId === todo.id ? "追加中..." : "ToDoに追加"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => router.push('/homework')}
+                              className="text-[11px] md:text-xs font-semibold text-[var(--yori-ink-soft)] underline underline-offset-4"
+                            >
+                              ToDoを確認
+                            </button>
+                          </div>
+                          {todoError && expandedTodoId === todo.id && (
+                            <p className="text-[11px] text-rose-500">{todoError}</p>
+                          )}
+                          {todoSuccessId === todo.id && (
+                            <p className="text-[11px] text-emerald-600">ToDoに追加しました。</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
                 ) : (
                   <p className="text-[11px] md:text-xs text-slate-400">
                     いま取り組みたいことがあれば、チャットの中でいっしょに整理していきましょう。
@@ -644,7 +832,7 @@ export default function CompanyReportPage() {
                   <p className="text-[11px] md:text-xs text-slate-500 mt-0.5">経営の基本情報</p>
                   <p className="text-[11px] md:text-xs text-slate-400">相談に進む前に、会社の規模感や業種をさっと確認できます。</p>
                 </div>
-                <SoftPillButton label="会社情報を登録・更新する" onClick={() => router.push("/company")} />
+                <SoftPillButton label="会社情報を登録・更新する" onClick={() => router.push('/company')} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -675,7 +863,7 @@ export default function CompanyReportPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push("/documents")}
+                  onClick={() => router.push('/documents')}
                   className="inline-flex items-center whitespace-nowrap rounded-full bg-white/70 px-3 py-1.5 text-[11px] md:text-xs font-semibold text-sky-600 shadow-sm hover:bg-white"
                 >
                   資料を登録・アップロードする
@@ -695,8 +883,7 @@ export default function CompanyReportPage() {
               </div>
             </div>
           </section>
-
-          <section className="mt-4 space-y-3">
+<section className="mt-4 space-y-3">
             <AccordionSection title="経営の全体状況" summary={overallSummary} defaultOpen>
               <p>{overallDetail}</p>
             </AccordionSection>
@@ -733,7 +920,7 @@ export default function CompanyReportPage() {
             <AccordionSection title="企業の特徴" summary={qualitativeSummary}>
               <div className="grid gap-3 md:grid-cols-2">
                 {qualitativeSections.map(({ title, data }) => (
-                  <div key={title} className="rounded-2xl bg-white/80 p-3 border border-sky-50">
+                  <div key={title} className="rounded-2xl bg-white/80 p-3 border border-[color:var(--yori-line-strong-2)]">
                     <p className="text-xs font-semibold text-slate-800 mb-1">{title}</p>
                     {data && Object.keys(data).length > 0 ? (
                       <ul className="space-y-1 text-xs md:text-sm text-slate-700">

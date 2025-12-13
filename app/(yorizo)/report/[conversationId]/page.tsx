@@ -73,7 +73,7 @@ function TextSection({ title, helper, placeholder, value, onChange }: TextSectio
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm text-[var(--yori-ink-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)] min-h-[110px] leading-relaxed"
+        className="w-full rounded-2xl border border-[color:var(--yori-line-strong)] bg-white px-3 py-3 text-sm text-[var(--yori-ink-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)] min-h-[110px] leading-relaxed"
       />
     </div>
   )
@@ -240,7 +240,7 @@ export default function ConsultationMemoPage() {
   const expertPoints = report?.for_expert ?? []
 
   return (
-    <div className="w-full flex flex-col gap-5 pb-6">
+    <div className="yori-report w-full flex flex-col gap-5 pb-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -249,7 +249,7 @@ export default function ConsultationMemoPage() {
         >
           <ArrowLeft className="h-4 w-4" /> 戻る
         </button>
-        <div className="text-xs font-semibold text-[var(--yori-ink-soft)] bg-[var(--yori-secondary)] px-3 py-1 rounded-full border border-[var(--yori-outline)]">
+        <div className="text-xs font-semibold text-[var(--yori-ink-soft)] bg-[var(--yori-secondary)] px-3 py-1 rounded-full border border-[color:var(--yori-line-strong)]">
           相談メモ
         </div>
         <button
@@ -287,7 +287,7 @@ export default function ConsultationMemoPage() {
         <>
           <header className="yori-card p-5 space-y-3">
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-[var(--yori-secondary)] border border-[color:var(--yori-line-strong)] flex items-center justify-center">
                 <FileText className="h-5 w-5 text-[var(--yori-ink-strong)]" />
               </div>
               <div className="flex-1 space-y-1">
@@ -312,7 +312,7 @@ export default function ConsultationMemoPage() {
             {selfActions.length > 0 ? (
               <div className="space-y-3">
                 {selfActions.map((action) => (
-                  <div key={action.id} className="rounded-2xl border border-[var(--yori-outline)] bg-white p-3 space-y-1">
+                  <div key={action.id} className="rounded-2xl border border-[color:var(--yori-line-strong)] bg-white p-3 space-y-1">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">{action.title}</p>
                       <StatusBadge status={(action.status || "pending") as StatusKey} />
@@ -326,7 +326,7 @@ export default function ConsultationMemoPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-[var(--yori-ink)]">まだ宿題の登録がありません。チャットの中で決まった取り組みがここに表示されます。</p>
+              <p className="text-sm text-[var(--yori-ink)]">まだToDoの登録がありません。チャットの中で決まった取り組みがここに表示されます。</p>
             )}
           </section>
 
@@ -381,7 +381,7 @@ export default function ConsultationMemoPage() {
               )}
               <div className="space-y-2">
                 {documents.map((doc) => (
-                  <label key={doc.id} className="flex items-center gap-3 rounded-2xl border border-[var(--yori-outline)] bg-white/80 px-3 py-2">
+                  <label key={doc.id} className="flex items-center gap-3 rounded-2xl border border-[color:var(--yori-line-strong)] bg-white/80 px-3 py-2">
                     <input
                       type="checkbox"
                       checked={selectedDocumentIds.includes(doc.id)}

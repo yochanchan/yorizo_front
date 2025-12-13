@@ -65,6 +65,7 @@ export type HomeworkTaskCreate = {
   title: string
   detail?: string
   category?: string
+  timeframe?: string
   due_date?: string
   status?: "pending" | "done"
 }

@@ -607,7 +607,7 @@ export function BookingDashboard({ bookings, expertId }: Props) {
               ) : null}
               {homeworkItems.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-xs text-slate-500">宿題</p>
+                  <p className="text-xs text-slate-500">ToDo</p>
                   <ul className="space-y-1 text-sm text-slate-700">
                     {homeworkItems.map((h) => (
                       <li key={h.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">

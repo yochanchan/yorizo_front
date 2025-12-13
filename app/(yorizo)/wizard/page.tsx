@@ -260,7 +260,7 @@ export default function WizardPage() {
             onClick={() => router.push("/homework")}
             className="btn-ghost w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center"
           >
-            宿題を確認する
+            ToDoを確認する
           </button>
         </div>
 

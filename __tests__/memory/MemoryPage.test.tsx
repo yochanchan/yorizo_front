@@ -35,7 +35,7 @@ describe("MemoryPage", () => {
     render(view)
 
     expect(screen.getByRole("link", { name: "チャットを再開する" })).toHaveAttribute("href", "/chat")
-    expect(screen.getByRole("link", { name: /宿題を確認/ })).toHaveAttribute("href", "/homework")
+    expect(screen.getByRole("link", { name: /ToDoを確認/ })).toHaveAttribute("href", "/homework")
     expect(screen.getByRole("link", { name: /イマココレポート/ })).toHaveAttribute("href", "/report")
   })
 })

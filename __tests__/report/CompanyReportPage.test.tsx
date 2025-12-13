@@ -49,7 +49,7 @@ describe("CompanyReportPage", () => {
 
     expect(screen.getByText("イマココレポート")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "チャットを再開" })).toHaveAttribute("href", "/chat")
-    expect(screen.getByRole("link", { name: /宿題を確認/ })).toHaveAttribute("href", "/homework")
+    expect(screen.getByRole("link", { name: /ToDoを確認/ })).toHaveAttribute("href", "/homework")
     expect(screen.getByRole("link", { name: "専門家に相談" })).toHaveAttribute("href", "/yorozu")
   })
 
