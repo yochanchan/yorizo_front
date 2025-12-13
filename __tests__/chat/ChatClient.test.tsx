@@ -40,6 +40,19 @@ describe("ChatClient", () => {
     jest.clearAllMocks()
   })
 
+  it("places the step indicator after the last assistant message and before quick options", () => {
+    render(<ChatClient initialConversationId={null} />)
+
+    const lastAssistantMessage = screen.getByText(
+      "まず、気になっているテーマを1つ選んでください。どれもピンとこなければ「その他」を選んでください。",
+    )
+    const stepIndicator = screen.getByTestId("chat-step-indicator")
+    const quickOptionsTitle = screen.getByText("気になるテーマを選んでください")
+
+    expect(lastAssistantMessage.compareDocumentPosition(stepIndicator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(stepIndicator.compareDocumentPosition(quickOptionsTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("shows 0/5 progress, updates to 5/5, and no guide label is rendered", async () => {
     mockedGuidedChatTurn.mockResolvedValue({
       conversation_id: "c1",
@@ -85,6 +98,10 @@ describe("ChatClient", () => {
     await user.click(screen.getByRole("button", { name: "送信" }))
 
     await waitFor(() => expect(screen.getByText("相談メモをまとめました")).toBeInTheDocument())
+    const stepIndicator = screen.getByTestId("chat-step-indicator")
+    const memoTitle = screen.getByText("相談メモをまとめました")
+    expect(stepIndicator.compareDocumentPosition(memoTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText("完了です").compareDocumentPosition(stepIndicator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("button", { name: "相談メモを開く" })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText("ご相談内容を入力してください")).not.toBeInTheDocument()
     expect(screen.queryByTestId("voice-toggle")).not.toBeInTheDocument()

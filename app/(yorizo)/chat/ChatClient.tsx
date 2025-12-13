@@ -388,14 +388,20 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       </div>
     )
   }
+
+  const stepIndicator = (
+    <div
+      data-testid="chat-step-indicator"
+      className="flex items-center justify-end text-xs text-[var(--yori-ink-strong)] pt-1"
+    >
+      <span className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-white px-3 py-1 font-semibold shadow-sm">
+        ステップ {currentStep} / {DEFAULT_TOTAL_STEPS}
+      </span>
+    </div>
+  )
+
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col gap-3 pb-16 px-4 md:px-6">
-      <div className="flex items-center justify-end text-xs text-[var(--yori-ink-strong)] py-1">
-        <span className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-white px-3 py-1 font-semibold shadow-sm">
-          ステップ {currentStep} / {DEFAULT_TOTAL_STEPS}
-        </span>
-      </div>
-
       {bootstrapLoading ? (
         <ThinkingRow text="相談履歴を読み込んでいます..." className="py-6" />
       ) : (
@@ -422,6 +428,8 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
           {voiceMessage && <p className="text-xs text-[var(--yori-ink-soft)]">{voiceMessage}</p>}
         </div>
       )}
+
+      {stepIndicator}
 
       {isCompleted && conversationId && (
         <div className="yori-card p-4 space-y-3">
