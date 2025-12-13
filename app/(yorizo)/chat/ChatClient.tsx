@@ -436,7 +436,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
           <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">相談メモをまとめました</p>
           <button
             type="button"
-            onClick={() => router.push(`/report/${conversationId}`)}
+            onClick={() => router.push(`/memory/${conversationId}/memo`)}
             className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
           >
             相談メモを開く

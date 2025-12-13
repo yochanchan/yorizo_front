@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event"
 import ChatClient from "@/app/(yorizo)/chat/ChatClient"
 import { ApiError, LLM_FALLBACK_MESSAGE, getConversationDetail, guidedChatTurn } from "@/lib/api"
 
+const pushMock = jest.fn()
+const replaceMock = jest.fn()
+
 jest.mock("@/lib/api", () => {
   const actual = jest.requireActual("@/lib/api")
   return {
@@ -16,8 +19,8 @@ jest.mock("@/lib/api", () => {
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
+    push: pushMock,
+    replace: replaceMock,
     refresh: jest.fn(),
     back: jest.fn(),
   }),
@@ -38,6 +41,8 @@ beforeAll(() => {
 describe("ChatClient", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    pushMock.mockReset()
+    replaceMock.mockReset()
   })
 
   it("places the step indicator after the last assistant message and before quick options", () => {
@@ -102,7 +107,11 @@ describe("ChatClient", () => {
     const memoTitle = screen.getByText("相談メモをまとめました")
     expect(stepIndicator.compareDocumentPosition(memoTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByText("完了です").compareDocumentPosition(stepIndicator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByRole("button", { name: "相談メモを開く" })).toBeInTheDocument()
+    const memoButton = screen.getByRole("button", { name: "相談メモを開く" })
+    expect(memoButton).toBeInTheDocument()
+
+    await user.click(memoButton)
+    expect(pushMock).toHaveBeenCalledWith("/memory/done-1/memo")
     expect(screen.queryByPlaceholderText("ご相談内容を入力してください")).not.toBeInTheDocument()
     expect(screen.queryByTestId("voice-toggle")).not.toBeInTheDocument()
   })

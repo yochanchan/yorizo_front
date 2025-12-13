@@ -23,7 +23,7 @@ jest.mock("next/navigation", () => ({
 }))
 
 describe("MemoryPage", () => {
-  it("renders navigation cards for chat, homework, and report", async () => {
+  it("renders navigation cards for chat, homework, report, and memo", async () => {
     ;(getConversations as jest.Mock).mockResolvedValue([
       { id: "c1", title: "相談1", date: "2024-01-01" },
     ])
@@ -37,5 +37,6 @@ describe("MemoryPage", () => {
     expect(screen.getByRole("link", { name: "チャットを再開する" })).toHaveAttribute("href", "/chat")
     expect(screen.getByRole("link", { name: /ToDoを確認/ })).toHaveAttribute("href", "/homework")
     expect(screen.getByRole("link", { name: /イマココレポート/ })).toHaveAttribute("href", "/report")
+    expect(screen.getByRole("link", { name: "相談メモを見る" })).toHaveAttribute("href", "/memory/c1/memo")
   })
 })

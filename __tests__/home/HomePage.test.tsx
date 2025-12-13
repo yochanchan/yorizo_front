@@ -24,7 +24,7 @@ describe("HomePage", () => {
 
     expect(screen.getByRole("link", { name: /ToDoを確認/ })).toHaveAttribute("href", "/homework")
     expect(screen.getByRole("link", { name: /イマココレポートを見る/ })).toHaveAttribute("href", "/report")
-    expect(screen.getByRole("link", { name: /相談メモを開く/ }).getAttribute("href")).toContain("/report/conv-1")
+    expect(screen.getByRole("link", { name: /相談メモを開く/ }).getAttribute("href")).toContain("/memory/conv-1/memo")
   })
 
   it("falls back to memory when no conversations exist", async () => {
