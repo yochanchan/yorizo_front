@@ -156,6 +156,7 @@ export async function getConversations(userId?: string, limit?: number, offset?:
 export type ConsultationMemo = {
   current_points: string[]
   important_points: string[]
+  created_at: string
   updated_at: string
 }
 

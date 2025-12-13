@@ -415,7 +415,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
             <div className="flex justify-start">
               <span className="rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
                 <ThinkingRow
-                  text="yorizoが考えています..."
+                  text="Yorizoが考えています..."
                   className="text-xs text-[var(--yori-ink-strong)]"
                   gap="compact"
                 />

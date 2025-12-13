@@ -6,8 +6,19 @@ import { AlertCircle } from "lucide-react"
 
 import { ThinkingRow } from "@/components/ThinkingRow"
 import { YoriCard } from "@/components/YoriCard"
+import { YoriSectionCard } from "@/components/YoriSectionCard"
 import { YorizoAvatar } from "@/components/YorizoAvatar"
 import { getConsultationMemo, type ConsultationMemo } from "@/lib/api"
+
+function formatYyyyMmDd(iso?: string) {
+  if (!iso) return "--"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "--"
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}/${m}/${day}`
+}
 
 export default function ConsultationMemoPage() {
   const params = useParams<{ conversationId: string }>()
@@ -42,21 +53,21 @@ export default function ConsultationMemoPage() {
   }, [conversationId])
 
   const bookingHref = conversationId ? `/yorozu?conversationId=${conversationId}` : "/yorozu"
+  const createdAtLabel = memo ? formatYyyyMmDd(memo.created_at) : "--"
 
   return (
     <main className="w-full">
       <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 flex flex-col flex-1 pb-24 pt-6 space-y-5">
-        <YoriCard
-          variant="info"
+        <YoriSectionCard
+          tone="muted"
           title="相談メモをまとめました"
           description="チャット内容から自動生成します。初回は少し時間がかかります。"
           icon={<YorizoAvatar size="sm" mood="satisfied" />}
-          className="!bg-white"
           data-testid="memo-hero-card"
         />
 
-        <YoriCard variant="info" title="最新の相談メモ" className="!bg-white" data-testid="memo-latest-card">
-          <div className="mt-3 space-y-3">
+        <YoriSectionCard title={`相談メモ（作成日：${createdAtLabel}）`} data-testid="memo-latest-card">
+          <div className="space-y-3">
             {isLoading && (
               <div data-testid="memo-thinking">
                 <ThinkingRow text="相談メモを生成しています..." className="py-2" />
@@ -96,7 +107,7 @@ export default function ConsultationMemoPage() {
               </div>
             )}
           </div>
-        </YoriCard>
+        </YoriSectionCard>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <YoriCard
