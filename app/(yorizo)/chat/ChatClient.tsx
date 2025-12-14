@@ -377,7 +377,9 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       return (
         <div key={msg.id} className="flex items-start gap-3">
           <YorizoAvatar size="sm" mood={loading ? "thinking" : "basic"} className="mt-1" />
-          <div className="flex-1 space-y-1">{bubble}</div>
+          <div className="flex-1 space-y-2">
+            {bubble}
+          </div>
         </div>
       )
     }

@@ -18,6 +18,13 @@ export type ChatTurnRequest = {
   category?: string
 }
 
+export type Citation = {
+  title: string
+  path?: string | null
+  page?: number | null
+  score?: number | null
+}
+
 export type ChatTurnResponse = {
   conversation_id: string
   reply: string
@@ -26,6 +33,7 @@ export type ChatTurnResponse = {
   allow_free_text: boolean
   step: number
   done: boolean
+  citations?: Citation[] | null
 }
 
 export async function chatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
