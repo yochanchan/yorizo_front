@@ -28,6 +28,12 @@ export type ChatTurnResponse = {
   done: boolean
 }
 
+export type SpeechTokenResponse = {
+  token: string
+  region: string
+  expires_in: number
+}
+
 export async function chatTurn(payload: ChatTurnRequest): Promise<ChatTurnResponse> {
   return apiFetch<ChatTurnResponse>("/api/chat", {
     method: "POST",
@@ -41,6 +47,12 @@ export async function guidedChatTurn(payload: ChatTurnRequest): Promise<ChatTurn
     method: "POST",
     json: payload,
     fallbackMessage: LLM_FALLBACK_MESSAGE,
+  })
+}
+
+export async function getSpeechToken(): Promise<SpeechTokenResponse> {
+  return apiFetch<SpeechTokenResponse>("/api/speech/token", {
+    method: "POST",
   })
 }
 

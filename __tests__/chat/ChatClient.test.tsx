@@ -26,6 +26,27 @@ jest.mock("next/navigation", () => ({
   }),
 }))
 
+jest.mock("@/components/voice/ChatSpeechInput", () => ({
+  ChatSpeechInput: ({
+    onTranscript,
+    disabled,
+  }: {
+    onTranscript: (text: string) => void
+    disabled?: boolean
+  }) => (
+    <div data-testid="chat-speech-input">
+      <button
+        type="button"
+        data-testid="mock-speech-button"
+        disabled={disabled}
+        onClick={() => onTranscript("音声テキスト")}
+      >
+        mock speech
+      </button>
+    </div>
+  ),
+}))
+
 const mockedGuidedChatTurn = guidedChatTurn as jest.MockedFunction<typeof guidedChatTurn>
 const mockedGetConversationDetail = getConversationDetail as jest.MockedFunction<typeof getConversationDetail>
 
@@ -104,7 +125,7 @@ describe("ChatClient", () => {
     await user.click(memoButton)
     expect(pushMock).toHaveBeenCalledWith("/memory/done-1/memo")
     expect(screen.queryByPlaceholderText("ご相談内容を入力してください")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("voice-toggle")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("chat-speech-input")).not.toBeInTheDocument()
   })
 
   it("keeps the initial message when loading a past conversation", async () => {
@@ -193,13 +214,13 @@ describe("ChatClient", () => {
     await waitFor(() => expect(scrollTopSetter).toHaveBeenCalledWith(180))
   })
 
-  it("keeps quick options and voice input controls available during the flow", async () => {
+  it("keeps quick options and speech input available even when allow_free_text is false", async () => {
     mockedGuidedChatTurn.mockResolvedValue({
       conversation_id: "opt-1",
       reply: "選択肢を選びました",
       question: "",
       options: [],
-      allow_free_text: true,
+      allow_free_text: false,
       step: 2,
       done: false,
     })
@@ -209,7 +230,25 @@ describe("ChatClient", () => {
 
     await user.click(screen.getByRole("button", { name: "売上が不安" }))
     await waitFor(() => expect(mockedGuidedChatTurn).toHaveBeenCalled())
-    expect(screen.getByTestId("voice-toggle")).toBeInTheDocument()
+    expect(screen.getByTestId("chat-speech-input")).toBeInTheDocument()
+    expect(screen.getByTestId("chat-input")).not.toBeDisabled()
+  })
+
+  it("appends transcripts with a single newline even when the input is empty or ends with newlines", async () => {
+    const user = userEvent.setup()
+    render(<ChatClient initialConversationId={null} />)
+
+    const input = screen.getByTestId("chat-input") as HTMLTextAreaElement
+    const speechButton = screen.getByTestId("mock-speech-button")
+
+    await user.click(speechButton)
+    expect(input.value).toBe("\n音声テキスト")
+
+    await user.clear(input)
+    await user.type(input, "行1\n\n")
+    await user.click(speechButton)
+
+    expect(input.value).toBe("行1\n音声テキスト")
   })
 
   it("shows fallback message when the chat API fails", async () => {
