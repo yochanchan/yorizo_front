@@ -444,6 +444,45 @@ export async function createConsultationBooking(
   })
 }
 
+export type ConsultationBookingListItem = {
+  id: string
+  date: string
+  time_slot: string
+  channel: string
+  status: string
+  expert_name?: string | null
+}
+
+export async function getConsultations(
+  userId: string,
+  limit?: number,
+  dateFrom?: string,
+): Promise<ConsultationBookingListItem[]> {
+  const params = new URLSearchParams({ user_id: userId })
+  if (limit !== undefined) params.set("limit", String(limit))
+  if (dateFrom) params.set("date_from", dateFrom)
+  const data = await apiFetch<{ bookings?: ConsultationBookingListItem[] }>(
+    `/api/consultations?${params.toString()}`,
+  )
+  return data?.bookings ?? []
+}
+
+export type ConsultationMemoListItem = {
+  conversation_id: string
+  created_at: string
+  current_point_preview: string
+  important_point_preview: string
+}
+
+export async function listConsultationMemos(userId: string, limit?: number): Promise<ConsultationMemoListItem[]> {
+  const params = new URLSearchParams({ user_id: userId })
+  if (limit !== undefined) params.set("limit", String(limit))
+  const data = await apiFetch<{ memos?: ConsultationMemoListItem[] }>(
+    `/api/consultation-memos?${params.toString()}`,
+  )
+  return data?.memos ?? []
+}
+
 export type DocumentType = "financial_statement" | "trial_balance" | "plan" | "other"
 
 export type DocumentUploadResult = {
