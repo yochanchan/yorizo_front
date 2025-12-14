@@ -18,7 +18,7 @@ jest.mock("next/navigation", () => ({
 const mockedGetMemo = getConsultationMemo as jest.MockedFunction<typeof getConsultationMemo>
 
 describe("ConsultationMemoPage", () => {
-  it("shows thinking, renders memo bullets, CTAs, and omits removed controls", async () => {
+  it("shows thinking, renders memo with created_at, CTAs, and omits removed controls", async () => {
     let resolveMemo: (value: ConsultationMemo) => void = () => {}
     const memoPromise = new Promise<ConsultationMemo>((resolve) => {
       resolveMemo = resolve
@@ -27,16 +27,19 @@ describe("ConsultationMemoPage", () => {
 
     render(<ConsultationMemoPage />)
 
+    expect(screen.getByText("相談メモ（作成日：--）")).toBeInTheDocument()
     expect(screen.getByTestId("memo-thinking")).toBeInTheDocument()
-    expect(screen.getByText("相談メモをまとめました")).toBeInTheDocument()
+    expect(screen.getByText("相談メモを生成しています...")).toBeInTheDocument()
 
     resolveMemo({
       current_points: ["first point", "second point"],
       important_points: ["important detail"],
+      created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
     })
 
-    await waitFor(() => expect(screen.getByText("first point")).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText("相談メモ（作成日：2024/01/01）")).toBeInTheDocument())
+    expect(screen.getByText("first point")).toBeInTheDocument()
     expect(screen.getByText("second point")).toBeInTheDocument()
     expect(screen.getByText("important detail")).toBeInTheDocument()
 
@@ -49,8 +52,8 @@ describe("ConsultationMemoPage", () => {
       "/chat?reset=true",
     )
 
-    expect(screen.queryByText(/コピー/)).toBeNull()
-    expect(screen.queryByText(/最新取り込み/)).toBeNull()
+    expect(screen.queryByText("コピー")).toBeNull()
+    expect(screen.queryByText("最新取り込み")).toBeNull()
     expect(screen.queryByText(/更新日/)).toBeNull()
     expect(screen.queryByText(/相談予定日/)).toBeNull()
     expect(screen.queryByText(/感想/)).toBeNull()

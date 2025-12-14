@@ -16,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "ホーム", href: "/", icon: Home },
   { label: "チャット", href: "/chat", icon: MessageCircle },
   { label: "イマココ", href: "/report", icon: LineChart },
-  { label: "相談予約", href: "/yorozu", icon: CalendarDays },
+  { label: "相談予約", href: "/appoint", icon: CalendarDays },
 ]
 
 export function BottomNav() {

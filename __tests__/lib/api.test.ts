@@ -160,6 +160,7 @@ describe("lib/api high-level wrappers", () => {
     const memo: ConsultationMemo = {
       current_points: ["a"],
       important_points: ["b"],
+      created_at: "2024-01-01",
       updated_at: "2024-01-01",
     }
     mockFetchJson(memo)
