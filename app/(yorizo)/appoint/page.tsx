@@ -15,10 +15,32 @@ const USER_ID = "demo-user"
 const BOOKING_LIMIT = 2
 const MEMO_LIMIT = 5
 
+const CHANNEL_LABEL: Record<string, string> = {
+  online: "オンライン",
+  "in-person": "対面",
+}
+
+const BOOKING_STATUS_LABEL: Record<string, string> = {
+  pending: "受付待ち",
+  confirmed: "確定",
+  done: "面談済み",
+  cancelled: "キャンセル",
+}
+
 function formatYyyyMmDd(value?: string) {
   if (!value) return "--"
   const [datePart] = value.split("T")
   return (datePart || value).replace(/-/g, "/")
+}
+
+function formatChannel(value?: string) {
+  if (!value) return "不明"
+  return CHANNEL_LABEL[value] ?? "不明"
+}
+
+function formatBookingStatus(value?: string) {
+  if (!value) return "不明"
+  return BOOKING_STATUS_LABEL[value] ?? "不明"
 }
 
 export default async function AppointPage() {
@@ -50,7 +72,7 @@ export default async function AppointPage() {
         <YoriSectionCard
           tone="muted"
           title="相談予約のご案内"
-          description="まずは日程を決めるだけ。困りごとは予約後に専門家と一緒に整理できます。"
+          description="お近くのよろず支援拠点につなぎます。相談メモもそのまま持ち込めます。"
           icon={<YorizoAvatar mood="expert" size="sm" />}
           data-testid="appoint-hero"
         />
@@ -65,7 +87,6 @@ export default async function AppointPage() {
 
         <YoriSectionCard
           title="予約済みの日程"
-          description="直近の予約を表示します（日時変更・キャンセルは現在サポート外です）。"
           icon={<CalendarDays className="h-5 w-5 text-[var(--yori-ink-soft)]" />}
           data-testid="appoint-bookings"
         >
@@ -88,12 +109,12 @@ export default async function AppointPage() {
                     <p className="text-xs text-[var(--yori-ink)] flex items-center gap-2">
                       <CalendarClock className="h-4 w-4 text-[var(--yori-ink-soft)]" aria-hidden />
                       <span className="truncate">
-                        {booking.channel} {booking.expert_name ? `| ${booking.expert_name}` : ""}
+                        {formatChannel(booking.channel)} {booking.expert_name ? `| ${booking.expert_name}` : ""}
                       </span>
                     </p>
                   </div>
-                  <span className="text-[11px] font-semibold text-[var(--yori-ink-soft)] uppercase tracking-wide">
-                    {booking.status}
+                  <span className="text-[11px] font-semibold text-[var(--yori-ink-soft)] tracking-wide">
+                    {formatBookingStatus(booking.status)}
                   </span>
                 </div>
               ))}
@@ -103,7 +124,6 @@ export default async function AppointPage() {
 
         <YoriSectionCard
           title="過去の相談メモ"
-          description="これまでの相談で話したポイントを振り返ります。"
           icon={<NotebookPen className="h-5 w-5 text-[var(--yori-ink-soft)]" />}
           data-testid="appoint-memos"
         >

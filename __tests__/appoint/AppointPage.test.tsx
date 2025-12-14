@@ -79,6 +79,10 @@ describe("AppointPage", () => {
     expect(bookingRows).toHaveLength(2)
     expect(screen.getByText("2025/01/02 09:00-10:00")).toBeInTheDocument()
     expect(screen.getByText("2025/01/03 10:00-11:00")).toBeInTheDocument()
+    expect(screen.getByText("オンライン | Expert A")).toBeInTheDocument()
+    expect(screen.getByText("対面 | Expert B")).toBeInTheDocument()
+    expect(screen.getByText("受付待ち")).toBeInTheDocument()
+    expect(screen.getByText("確定")).toBeInTheDocument()
 
     const memoRows = screen.getAllByTestId("memo-row")
     expect(memoRows).toHaveLength(4)
