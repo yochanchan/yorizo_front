@@ -82,7 +82,12 @@ function normalizeUserContent(content: string) {
   return content
 }
 
-export const appendTranscript = (prev: string, t: string) => `${prev.replace(/\n*$/, "")}\n${t.trim()}`
+export const appendTranscript = (prev: string, t: string) => {
+  const next = t.trim()
+  if (!next) return prev
+  const base = prev.replace(/\s*$/, "")
+  return base ? `${base} ${next}` : next
+}
 
 function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
   const items: ChatMessage[] = []
@@ -122,6 +127,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [voiceStatus, setVoiceStatus] = useState<"idle" | "recording" | "transcribing">("idle")
   const [bootstrapLoading, setBootstrapLoading] = useState(!!initialConversationId && !reset)
   const [error, setError] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -131,7 +137,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -202,7 +207,8 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   const currentStep = clampStep(effectiveStep) ?? 0
   const isCompleted = (lastAssistant?.done ?? false) || currentStep >= DEFAULT_TOTAL_STEPS
   const quickOptions = isCompleted ? [] : lastAssistant?.options ?? []
-  const canSend = input.trim().length > 0 && !loading
+  const voiceBusy = voiceStatus !== "idle"
+  const canSend = input.trim().length > 0 && !loading && !voiceBusy
   const inputPlaceholder = "ご相談内容を入力してください"
   const sendButtonClass = clsx(
     "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors",
@@ -213,28 +219,12 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
 
   const handleUploadClick = () => fileInputRef.current?.click()
 
-  const resetTextareaHeight = () => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = "44px"
-  }
-
-  const adjustTextareaHeight = () => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = "0px"
-    const next = Math.min(el.scrollHeight, 140)
-    el.style.height = `${Math.max(next, 44)}px`
-  }
-
   const handleVoiceTranscript = (text: string) => {
     setInput((prev) => appendTranscript(prev, text))
-    setTimeout(adjustTextareaHeight, 0)
   }
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
-    adjustTextareaHeight()
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -299,10 +289,9 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }
 
   const handleOptionClick = async (option: ChatOption) => {
-    if (loading || isCompleted) return
+    if (loading || isCompleted || voiceBusy) return
     addUserMessage(option.label, { type: "choice", choiceId: option.id })
     setInput("")
-    resetTextareaHeight()
     await sendToBackend({
       message: option.label,
       selection: { type: "choice", id: option.id, label: option.label },
@@ -314,7 +303,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
     const text = input.trim()
     addUserMessage(text, { type: "free_text" })
     setInput("")
-    resetTextareaHeight()
     await sendToBackend({ message: text, selection: { type: "free_text", text } })
   }
 
@@ -454,7 +442,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       {!isCompleted && (
         <>
           {quickOptions.length > 0 && (
-            <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading} />
+            <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading || voiceBusy} />
           )}
 
           {attachments.length > 0 && (
@@ -489,20 +477,20 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
                   type="button"
                   onClick={handleUploadClick}
                   className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-                  disabled={uploading}
+                  disabled={uploading || voiceBusy}
+                  data-testid="chat-attach"
                   aria-label="資料を添付"
                 >
                   <FileUp className="h-4 w-4" />
                 </button>
                 <textarea
-                  ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
+                  disabled={voiceBusy}
                   placeholder={inputPlaceholder}
-                  rows={1}
-                  style={{ height: `44px`, overflowY: "auto" }}
+                  rows={3}
                   data-testid="chat-input"
-                  className="flex-1 h-full min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px]"
+                  className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px] overflow-y-auto"
                 />
                 <button
                   type="submit"
@@ -516,6 +504,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
               </div>
               <ChatSpeechInput
                 onTranscript={handleVoiceTranscript}
+                onStatusChange={setVoiceStatus}
                 disabled={loading || isCompleted}
                 data-testid="chat-speech-input"
               />

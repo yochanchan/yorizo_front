@@ -30,8 +30,10 @@ jest.mock("@/components/voice/ChatSpeechInput", () => ({
   ChatSpeechInput: ({
     onTranscript,
     disabled,
+    onStatusChange,
   }: {
     onTranscript: (text: string) => void
+    onStatusChange?: (s: "idle" | "recording" | "transcribing") => void
     disabled?: boolean
   }) => (
     <div data-testid="chat-speech-input">
@@ -42,6 +44,15 @@ jest.mock("@/components/voice/ChatSpeechInput", () => ({
         onClick={() => onTranscript("音声テキスト")}
       >
         mock speech
+      </button>
+      <button type="button" data-testid="mock-status-recording" onClick={() => onStatusChange?.("recording")}>
+        recording
+      </button>
+      <button type="button" data-testid="mock-status-transcribing" onClick={() => onStatusChange?.("transcribing")}>
+        transcribing
+      </button>
+      <button type="button" data-testid="mock-status-idle" onClick={() => onStatusChange?.("idle")}>
+        idle
       </button>
     </div>
   ),
@@ -234,7 +245,7 @@ describe("ChatClient", () => {
     expect(screen.getByTestId("chat-input")).not.toBeDisabled()
   })
 
-  it("appends transcripts with a single newline even when the input is empty or ends with newlines", async () => {
+  it("appends transcripts with a single space and avoids leading spaces", async () => {
     const user = userEvent.setup()
     render(<ChatClient initialConversationId={null} />)
 
@@ -242,13 +253,48 @@ describe("ChatClient", () => {
     const speechButton = screen.getByTestId("mock-speech-button")
 
     await user.click(speechButton)
-    expect(input.value).toBe("\n音声テキスト")
+    expect(input.value).toBe("音声テキスト")
 
     await user.clear(input)
     await user.type(input, "行1\n\n")
     await user.click(speechButton)
 
-    expect(input.value).toBe("行1\n音声テキスト")
+    expect(input.value).toBe("行1 音声テキスト")
+  })
+
+  it("disables chat inputs when voice input is busy and re-enables when idle", async () => {
+    const user = userEvent.setup()
+    render(<ChatClient initialConversationId={null} />)
+
+    const input = screen.getByTestId("chat-input") as HTMLTextAreaElement
+    const sendButton = screen.getByTestId("chat-send")
+    const attachButton = screen.getByTestId("chat-attach")
+    const quickOption = screen.getAllByTestId("chat-quick-option")[0]
+
+    await user.type(input, "入力中")
+
+    expect(sendButton).toBeEnabled()
+    expect(attachButton).toBeEnabled()
+    expect(quickOption).toBeEnabled()
+    expect(input).not.toBeDisabled()
+
+    await user.click(screen.getByTestId("mock-status-recording"))
+
+    await waitFor(() => {
+      expect(sendButton).toBeDisabled()
+      expect(attachButton).toBeDisabled()
+      expect(quickOption).toBeDisabled()
+      expect(input).toBeDisabled()
+    })
+
+    await user.click(screen.getByTestId("mock-status-idle"))
+
+    await waitFor(() => {
+      expect(sendButton).toBeEnabled()
+      expect(attachButton).toBeEnabled()
+      expect(quickOption).toBeEnabled()
+      expect(input).not.toBeDisabled()
+    })
   })
 
   it("shows fallback message when the chat API fails", async () => {

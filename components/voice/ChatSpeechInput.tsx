@@ -8,6 +8,7 @@ import { getSpeechToken } from "@/lib/api"
 
 type ChatSpeechInputProps = {
   onTranscript: (text: string) => void
+  onStatusChange?: (s: "idle" | "recording" | "transcribing") => void
   disabled?: boolean
   className?: string
   "data-testid"?: string
@@ -23,6 +24,7 @@ const formatTime = (seconds: number) =>
 
 export function ChatSpeechInput({
   onTranscript,
+  onStatusChange,
   disabled = false,
   className,
   "data-testid": testId,
@@ -55,6 +57,11 @@ export function ChatSpeechInput({
     }
   }
 
+  const emitStatus = (next: "idle" | "recording" | "transcribing") => {
+    setStatus(next)
+    onStatusChange?.(next)
+  }
+
   const finalizeTranscript = (reason?: "error") => {
     if (finishingRef.current) return
     finishingRef.current = true
@@ -66,18 +73,18 @@ export function ChatSpeechInput({
 
     if (transcript) {
       setError(null)
-      setStatus("idle")
+      emitStatus("idle")
       onTranscript(transcript)
       return
     }
 
     setError(reason ? "音声入力でエラーが発生しました" : "音声を認識できませんでした")
-    setStatus("idle")
+    emitStatus("idle")
   }
 
   const stopRecognition = () => {
     if (status === "idle") return
-    setStatus("transcribing")
+    emitStatus("transcribing")
     cleanupTimers()
     const recognizer = recognizerRef.current
     if (!recognizer) {
@@ -96,7 +103,7 @@ export function ChatSpeechInput({
     transcriptRef.current = []
     setElapsed(0)
     setError(null)
-    setStatus("transcribing")
+    emitStatus("transcribing")
 
     try {
       const sdk: SpeechSdkModule = await import("microsoft-cognitiveservices-speech-sdk")
@@ -119,7 +126,7 @@ export function ChatSpeechInput({
         recognizer.startContinuousRecognitionAsync(resolve, reject)
       })
 
-      setStatus("recording")
+      emitStatus("recording")
       timerRef.current = setInterval(
         () => setElapsed((prev) => Math.min(prev + 1, MAX_SECONDS)),
         1000,
@@ -128,7 +135,7 @@ export function ChatSpeechInput({
     } catch (err) {
       resetRecognizer()
       cleanupTimers()
-      setStatus("idle")
+      emitStatus("idle")
       setError("音声入力を開始できませんでした")
     }
   }
@@ -145,7 +152,7 @@ export function ChatSpeechInput({
       type="button"
       onClick={() => void startRecognition()}
       disabled={disabled || status !== "idle"}
-      className="inline-flex items-center gap-2 rounded-full border border-[var(--yori-outline)] bg-white px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)] hover:bg-[var(--yori-secondary)] disabled:opacity-50"
+      className="inline-flex items-center gap-2 rounded-full border border-[var(--yori-outline)] bg-[var(--yori-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)] shadow-sm hover:bg-[var(--yori-secondary)] disabled:opacity-50 disabled:cursor-default"
     >
       <Mic className="h-4 w-4" />
       <span>音声入力</span>
@@ -172,7 +179,7 @@ export function ChatSpeechInput({
         <button
           type="button"
           onClick={() => stopRecognition()}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--yori-outline)] bg-[var(--yori-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)] hover:bg-[var(--yori-secondary)]"
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--yori-outline)] bg-[var(--yori-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--yori-ink-strong)] shadow-sm hover:bg-[var(--yori-secondary)]"
         >
           <Square className="h-4 w-4" />
           停止
@@ -183,7 +190,7 @@ export function ChatSpeechInput({
     content = (
       <div className="flex items-center gap-2 text-sm font-semibold text-[var(--yori-ink-strong)]">
         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--yori-outline)] border-t-[var(--yori-primary)]" />
-        <span>文字起こし中…</span>
+        <span>Yorizoが準備しています...</span>
       </div>
     )
   }
