@@ -77,52 +77,60 @@ describe("ChatClient", () => {
     replaceMock.mockReset()
   })
 
-  it("places the step indicator after the last assistant message and before quick options", () => {
+  it("shows the consultation memo CTA after the first user answer and enables it once conversationId is set", async () => {
+    let resolveTurn: (value: any) => void = () => {}
+    const turnPromise = new Promise<any>((resolve) => {
+      resolveTurn = resolve
+    })
+    mockedGuidedChatTurn.mockReturnValueOnce(turnPromise as any)
+
+    const user = userEvent.setup()
     render(<ChatClient initialConversationId={null} />)
 
-    const lastAssistantMessage = screen.getByText(
-      "まず、気になっているテーマを1つ選んでください。どれもピンとこなければ「その他」を選んでください。",
-    )
-    const stepIndicator = screen.getByTestId("chat-step-indicator")
-    const quickOptionsTitle = screen.getByText("気になるテーマを選んでください")
+    expect(screen.queryByTestId("chat-open-memo")).toBeNull()
 
-    expect(lastAssistantMessage.compareDocumentPosition(stepIndicator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(stepIndicator.compareDocumentPosition(quickOptionsTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
+    await user.type(screen.getByPlaceholderText("ご相談内容を入力してください"), "入力テキスト")
+    await user.click(screen.getByRole("button", { name: "送信" }))
 
-  it("shows progress updates and clamps to 5/5", async () => {
-    mockedGuidedChatTurn.mockResolvedValue({
+    const memoButton = await screen.findByTestId("chat-open-memo")
+    expect(memoButton).toBeDisabled()
+
+    resolveTurn({
       conversation_id: "c1",
       reply: "返答です",
       question: "",
       options: [],
       allow_free_text: true,
-      step: 6,
+      step: 1,
       done: false,
     })
 
-    const user = userEvent.setup()
-    render(<ChatClient initialConversationId={null} />)
+    await waitFor(() => expect(screen.getByTestId("chat-open-memo")).toBeEnabled())
 
-    expect(screen.getByTestId("chat-step-indicator")).toHaveTextContent("ステップ 0 / 5")
-
-    await user.type(screen.getByPlaceholderText("ご相談内容を入力してください"), "入力テキスト")
-    await user.click(screen.getByRole("button", { name: "送信" }))
-
-    await waitFor(() => expect(screen.getByTestId("chat-step-indicator")).toHaveTextContent("ステップ 5 / 5"))
-    expect(screen.getByText("返答です")).toBeInTheDocument()
+    await user.click(screen.getByTestId("chat-open-memo"))
+    expect(pushMock).toHaveBeenCalledWith("/memory/c1/memo")
   })
 
-  it("hides input UI and shows the consultation memo card when done", async () => {
-    mockedGuidedChatTurn.mockResolvedValue({
-      conversation_id: "done-1",
-      reply: "完了しました",
-      question: "",
-      options: [],
-      allow_free_text: false,
-      step: 5,
-      done: true,
-    })
+  it("keeps input UI visible and allows sending even when done is true", async () => {
+    mockedGuidedChatTurn
+      .mockResolvedValueOnce({
+        conversation_id: "done-1",
+        reply: "完了しました",
+        question: "",
+        options: [],
+        allow_free_text: false,
+        step: 5,
+        done: true,
+      })
+      .mockResolvedValueOnce({
+        conversation_id: "done-1",
+        reply: "続きです",
+        question: "",
+        options: [],
+        allow_free_text: true,
+        step: 5,
+        done: true,
+      })
 
     const user = userEvent.setup()
     render(<ChatClient initialConversationId={null} />)
@@ -130,13 +138,17 @@ describe("ChatClient", () => {
     await user.type(screen.getByPlaceholderText("ご相談内容を入力してください"), "終わり")
     await user.click(screen.getByRole("button", { name: "送信" }))
 
-    await waitFor(() => expect(screen.getByText("相談メモをまとめました")).toBeInTheDocument())
-    const memoButton = screen.getByRole("button", { name: "相談メモを開く" })
+    await waitFor(() => expect(screen.getByText("完了しました")).toBeInTheDocument())
 
-    await user.click(memoButton)
-    expect(pushMock).toHaveBeenCalledWith("/memory/done-1/memo")
-    expect(screen.queryByPlaceholderText("ご相談内容を入力してください")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("chat-speech-input")).not.toBeInTheDocument()
+    const input = screen.getByTestId("chat-input") as HTMLTextAreaElement
+    expect(input).toBeInTheDocument()
+    expect(input).not.toBeDisabled()
+    expect(screen.getByTestId("chat-speech-input")).toBeInTheDocument()
+
+    await user.type(input, " 続き")
+    await user.click(screen.getByRole("button", { name: "送信" }))
+
+    await waitFor(() => expect(mockedGuidedChatTurn).toHaveBeenCalledTimes(2))
   })
 
   it("keeps the initial message when loading a past conversation", async () => {
@@ -161,10 +173,10 @@ describe("ChatClient", () => {
     await waitFor(() => expect(screen.getByText("過去の返答")).toBeInTheDocument())
     expect(
       screen.getByText(
-        "まず、気になっているテーマを1つ選んでください。どれもピンとこなければ「その他」を選んでください。",
+        "気になるテーマを選んでください。どれも当てはまらなければ「その他」を選んでください。",
       ),
     ).toBeInTheDocument()
-    expect(screen.getByTestId("chat-step-indicator")).toHaveTextContent("ステップ 3 / 5")
+    expect(screen.queryByTestId("chat-open-memo")).toBeNull()
   })
 
   it("scrolls window to the bottom with smooth behavior when new messages arrive", async () => {

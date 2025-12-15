@@ -15,7 +15,6 @@ import {
   LLM_FALLBACK_MESSAGE,
   getConversationDetail,
   guidedChatTurn,
-  refreshConsultationMemo,
   uploadDocument,
   type ChatOption,
   type ChatTurnResponse,
@@ -200,16 +199,11 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }, [initialConversationId, reset])
 
   const lastAssistant = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant"), [messages])
-  const effectiveStep = useMemo(() => {
-    const assistantStep = clampStep(lastAssistant?.step)
-    if (assistantStep !== null) return assistantStep
-    return clampStep(localStep) ?? 0
-  }, [lastAssistant, localStep])
-  const currentStep = clampStep(effectiveStep) ?? 0
-  const isCompleted = (lastAssistant?.done ?? false) || currentStep >= DEFAULT_TOTAL_STEPS
-  const quickOptions = isCompleted ? [] : lastAssistant?.options ?? []
+  const hasUserAnswer = useMemo(() => messages.some((m) => m.role === "user"), [messages])
+  const quickOptions = lastAssistant?.options ?? []
   const voiceBusy = voiceStatus !== "idle"
   const canSend = input.trim().length > 0 && !loading && !voiceBusy
+  const canOpenMemo = Boolean(conversationId) && !(loading || voiceBusy)
   const inputPlaceholder = "ご相談内容を入力してください"
   const sendButtonClass = clsx(
     "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors",
@@ -290,7 +284,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }
 
   const handleOptionClick = async (option: ChatOption) => {
-    if (loading || isCompleted || voiceBusy) return
+    if (loading || voiceBusy) return
     addUserMessage(option.label, { type: "choice", choiceId: option.id })
     setInput("")
     await sendToBackend({
@@ -305,22 +299,6 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
     addUserMessage(text, { type: "free_text" })
     setInput("")
     await sendToBackend({ message: text, selection: { type: "free_text", text } })
-  }
-
-  const handleGenerateMemo = async () => {
-    if (!conversationId) return
-    setMemoLoading(true)
-    setError(null)
-    try {
-      await refreshConsultationMemo(conversationId)
-      router.push(`/memory/${conversationId}/memo`)
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "相談メモの作成に失敗しました。もう一度お試しください。"
-      setError(message)
-    } finally {
-      setMemoLoading(false)
-    }
   }
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -434,101 +412,103 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
         </div>
       )}
 
-      {stepIndicator}
 
-      {isCompleted && conversationId && (
+
+      {quickOptions.length > 0 && (
+        <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading || voiceBusy} />
+      )}
+
+      {attachments.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">添付済みファイル</p>
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((file) => (
+              <span
+                key={file.id}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--yori-secondary)] px-3 py-1 text-xs border border-[var(--yori-outline)] shadow-sm"
+              >
+                <FileUp className="h-4 w-4 text-[var(--yori-ink-soft)]" />
+                <span className="max-w-[180px] truncate">{file.filename}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(file.id)}
+                  className="text-[var(--yori-ink-soft)] hover:text-[var(--yori-ink-strong)]"
+                  aria-label="Remove attachment"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="sticky bottom-0 inset-x-0 border-t bg-slate-50/95 backdrop-blur">
+        <div className="mx-auto max-w-3xl px-3 py-2 md:px-4 md:py-3 space-y-2">
+          <div className="flex items-center gap-2 rounded-2xl border bg-white px-4 py-2 shadow-sm">
+            <button
+              type="button"
+              onClick={handleUploadClick}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              disabled={uploading || voiceBusy}
+              data-testid="chat-attach"
+              aria-label="資料を添付"
+            >
+              <FileUp className="h-4 w-4" />
+            </button>
+            <textarea
+              value={input}
+              onChange={handleInputChange}
+              disabled={voiceBusy}
+              placeholder={inputPlaceholder}
+              rows={3}
+              data-testid="chat-input"
+              className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px] overflow-y-auto"
+            />
+            <button
+              type="submit"
+              disabled={!canSend}
+              className={sendButtonClass}
+              data-testid="chat-send"
+              aria-label="送信"
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </button>
+          </div>
+          <ChatSpeechInput
+            onTranscript={handleVoiceTranscript}
+            onStatusChange={setVoiceStatus}
+            disabled={loading}
+            data-testid="chat-speech-input"
+          />
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
+          onChange={handleFileChange}
+        />
+      </form>
+      {hasUserAnswer && (
         <div className="yori-card p-4 space-y-3">
-          <p className="text-sm font-semibold text-[var(--yori-ink-strong)]">相談メモをまとめました</p>
           <button
             type="button"
-            onClick={() => router.push(`/memory/${conversationId}/memo`)}
-            className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
+            data-testid="chat-open-memo"
+            disabled={!canOpenMemo}
+            onClick={() => {
+              if (!conversationId) return
+              router.push(`/memory/${conversationId}/memo`)
+            }}
+            className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             相談メモを開く
             <ArrowRight className="h-4 w-4" />
           </button>
+          {!conversationId && (
+            <p className="text-xs text-[var(--yori-ink-soft)]">会話を準備しています… 送信後に開けるようになります。</p>
+          )}
         </div>
-      )}
-
-      {!isCompleted && (
-        <>
-          {quickOptions.length > 0 && (
-            <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading || voiceBusy} />
-          )}
-
-          {attachments.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-[var(--yori-ink-soft)]">添付済みファイル</p>
-              <div className="flex flex-wrap gap-2">
-                {attachments.map((file) => (
-                  <span
-                    key={file.id}
-                    className="inline-flex items-center gap-2 rounded-full bg-[var(--yori-secondary)] px-3 py-1 text-xs border border-[var(--yori-outline)] shadow-sm"
-                  >
-                    <FileUp className="h-4 w-4 text-[var(--yori-ink-soft)]" />
-                    <span className="max-w-[180px] truncate">{file.filename}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(file.id)}
-                      className="text-[var(--yori-ink-soft)] hover:text-[var(--yori-ink-strong)]"
-                      aria-label="Remove attachment"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="sticky bottom-0 inset-x-0 border-t bg-slate-50/95 backdrop-blur">
-            <div className="mx-auto max-w-3xl px-3 py-2 md:px-4 md:py-3 space-y-2">
-              <div className="flex items-center gap-2 rounded-2xl border bg-white px-4 py-2 shadow-sm">
-                <button
-                  type="button"
-                  onClick={handleUploadClick}
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-                  disabled={uploading || voiceBusy}
-                  data-testid="chat-attach"
-                  aria-label="資料を添付"
-                >
-                  <FileUp className="h-4 w-4" />
-                </button>
-                <textarea
-                  value={input}
-                  onChange={handleInputChange}
-                  disabled={voiceBusy}
-                  placeholder={inputPlaceholder}
-                  rows={3}
-                  data-testid="chat-input"
-                  className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px] overflow-y-auto"
-                />
-                <button
-                  type="submit"
-                  disabled={!canSend}
-                  className={sendButtonClass}
-                  data-testid="chat-send"
-                  aria-label="送信"
-                >
-                  <SendHorizontal className="h-4 w-4" />
-                </button>
-              </div>
-              <ChatSpeechInput
-                onTranscript={handleVoiceTranscript}
-                onStatusChange={setVoiceStatus}
-                disabled={loading || isCompleted}
-                data-testid="chat-speech-input"
-              />
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.csv,.xlsx,.xls,.tsv,image/*"
-              onChange={handleFileChange}
-            />
-          </form>
-        </>
       )}
     </div>
   )
