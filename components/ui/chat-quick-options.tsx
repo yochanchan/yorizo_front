@@ -31,9 +31,10 @@ export function ChatQuickOptions({
           <button
             key={opt.id}
             type="button"
-            className="inline-flex items-center rounded-full border border-transparent bg-white px-3 py-1 text-xs text-[var(--yori-ink-strong)] shadow-sm transition hover:border-[var(--yori-outline)] hover:bg-white/80 sm:text-sm disabled:opacity-50"
+            className="inline-flex items-center rounded-full border border-[var(--yori-outline)] bg-[var(--yori-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--yori-ink-strong)] shadow-sm transition-colors hover:bg-[var(--yori-secondary)] sm:text-sm disabled:opacity-50 disabled:cursor-default"
             onClick={() => onSelect(opt)}
             disabled={disabled}
+            data-testid="chat-quick-option"
           >
             {opt.label}
           </button>

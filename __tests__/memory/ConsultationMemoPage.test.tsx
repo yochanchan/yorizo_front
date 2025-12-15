@@ -43,6 +43,10 @@ describe("ConsultationMemoPage", () => {
     expect(screen.getByText("second point")).toBeInTheDocument()
     expect(screen.getByText("important detail")).toBeInTheDocument()
 
+    expect(screen.getByRole("link", { name: /チャットに戻る（同一会話）/ })).toHaveAttribute(
+      "href",
+      "/chat?conversationId=conv-123",
+    )
     expect(screen.getByRole("link", { name: "相談予約をする" })).toHaveAttribute(
       "href",
       "/yorozu?conversationId=conv-123",
