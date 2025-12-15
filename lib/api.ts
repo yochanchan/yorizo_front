@@ -4,6 +4,14 @@ export { ApiError, type ApiResult, DEFAULT_API_ERROR_MESSAGE, LLM_FALLBACK_MESSA
 
 export type ChatOption = { id: string; label: string; value?: string | null }
 
+export type KnowledgeHit = {
+  title: string
+  path?: string | null
+  page?: number | null
+  score?: number | null
+  snippet?: string | null
+}
+
 export type ChatTurnRequest = {
   conversation_id?: string
   user_id?: string
@@ -34,6 +42,8 @@ export type ChatTurnResponse = {
   step: number
   done: boolean
   citations?: Citation[] | null
+  answer?: string | null
+  hits?: KnowledgeHit[] | null
   checkpoint?: {
     index: number
     title: string

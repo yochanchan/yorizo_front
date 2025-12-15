@@ -1,9 +1,13 @@
 "use client"
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react"
+"use client"
+
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import clsx from "clsx"
-import { ArrowRight, FileUp, SendHorizontal, X } from "lucide-react"
+import { ArrowRight, ChevronDown, FileUp, SendHorizontal, X } from "lucide-react"
 import { useRouter } from "next/navigation"
+
 
 import { ChatBubble } from "@/components/ui/chat-bubble"
 import { ChatQuickOptions } from "@/components/ui/chat-quick-options"
@@ -19,21 +23,40 @@ import {
   type ChatOption,
   type ChatTurnResponse,
   type ConversationDetail,
+  type KnowledgeHit,
 } from "@/lib/api"
 
 type ChatMessage = {
   id: string
   role: "assistant" | "user"
   content: string
+  answer?: string | null
   question?: string
   options?: ChatOption[]
   allowFreeText?: boolean
   step?: number
   done?: boolean
+  hits?: KnowledgeHit[] | null
   payload?: {
     type?: "choice" | "free_text"
     choiceId?: string
   }
+}
+
+type ExampleCard = {
+  no: number
+  title: string
+  situation?: string
+  action?: string
+  steps?: string
+  caution?: string
+  source?: string
+}
+
+type ParsedExamples = {
+  examples: ExampleCard[]
+  references: string[]
+  intro: string
 }
 
 type Attachment = { id: string; filename: string }
@@ -82,6 +105,119 @@ function normalizeUserContent(content: string) {
   return content
 }
 
+const NUM_EMOJI: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣" }
+const LABEL_GROUPS = {
+  situation: ["状況", "背景"],
+  action: ["打ち手", "施策", "対応"],
+  steps: ["手順", "進め方", "方法"],
+  caution: ["注意点", "留意点"],
+  source: ["出典", "参考", "参照"],
+}
+const ALL_LABEL_WORDS = Object.values(LABEL_GROUPS).flat()
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function stripMarkdown(text: string): string {
+  if (!text) return ""
+  let out = text
+  out = out.replace(/^\s*#{1,6}\s*/gm, "")
+  out = out.replace(/\*\*/g, "")
+  out = out.replace(/^\s*[-*]\s?/gm, "")
+  out = out.replace(/^-{3,}\s*$/gm, "")
+  out = out.replace(/\n{3,}/g, "\n\n")
+  return out.trim()
+}
+
+function emojiForNo(no: number) {
+  return NUM_EMOJI[no] ?? `${no}`
+}
+
+function extractSection(block: string, keys: string[]): string | undefined {
+  if (!block) return undefined
+  const labelPattern = keys.map(escapeRegExp).join("|")
+  const nextPattern = ALL_LABEL_WORDS.map(escapeRegExp).join("|")
+  const regex = new RegExp(
+    `(?:${labelPattern})\\s*[：:】]\\s*(.*?)(?=(?:${nextPattern})\\s*[：:】]|$)`,
+    "s",
+  )
+  const match = block.match(regex)
+  const value = match?.[1]?.trim()
+  return value || undefined
+}
+
+function parseExamples(answer: string): ParsedExamples {
+  if (!answer) return { examples: [], references: [], intro: "" }
+
+  const refHeading = "参照した出典一覧"
+  let clean = stripMarkdown(answer)
+  const references: string[] = []
+
+  const refIndex = clean.indexOf(refHeading)
+  if (refIndex !== -1) {
+    const refBody = clean.slice(refIndex).replace(/参照した出典一覧[：:]?/, "")
+    clean = clean.slice(0, refIndex)
+    refBody
+      .split(/\n+/)
+      .map((line) => line.replace(/^[\-\u30fb•\s]+/, "").trim())
+      .filter(Boolean)
+      .forEach((line) => references.push(line))
+  }
+
+  const marker = /事例\s*(?:[1-3]|[１２３]|\u2460|\u2461|\u2462|[1-3]\uFE0F?\u20E3)?[：:]/g
+  const positions: number[] = []
+  let m: RegExpExecArray | null
+  while ((m = marker.exec(clean))) {
+    positions.push(m.index)
+  }
+
+  if (positions.length === 0) {
+    return { examples: [], references, intro: clean.trim() }
+  }
+
+  const examples: ExampleCard[] = []
+  const intro = clean.slice(0, positions[0]).trim()
+
+  for (let i = 0; i < positions.length; i += 1) {
+    const start = positions[i]
+    const end = positions[i + 1] ?? clean.length
+    const block = clean.slice(start, end).trim()
+    if (!block) continue
+
+    const numMatch = block.match(/事例\s*(\u2460|\u2461|\u2462|[1-3]|[１２３]|[1-3]\uFE0F?\u20E3)?/)
+    const rawNo = numMatch?.[1]
+    const noMap: Record<string, number> = {
+      "\u2460": 1,
+      "\u2461": 2,
+      "\u2462": 3,
+      "１": 1,
+      "２": 2,
+      "３": 3,
+      "1\uFE0F\u20E3": 1,
+      "2\uFE0F\u20E3": 2,
+      "3\uFE0F\u20E3": 3,
+    }
+    const derivedNo = rawNo ? noMap[rawNo] ?? Number(rawNo.replace(/\D/g, "")) : undefined
+    const no = derivedNo && derivedNo >= 1 ? derivedNo : examples.length + 1
+
+    const titleMatch = block.match(
+      /事例\s*(?:\u2460|\u2461|\u2462|[1-3]|[１２３]|[1-3]\uFE0F?\u20E3)?[：:]\s*(.+?)(?:\n|$)/,
+    )
+    const title = (titleMatch?.[1] || "").trim() || "売上拡大につながった事例"
+
+    const situation = extractSection(block, LABEL_GROUPS.situation)
+    const action = extractSection(block, LABEL_GROUPS.action)
+    const steps = extractSection(block, LABEL_GROUPS.steps)
+    const caution = extractSection(block, LABEL_GROUPS.caution)
+    const source = extractSection(block, LABEL_GROUPS.source)
+
+    examples.push({ no, title, situation, action, steps, caution, source })
+  }
+
+  return { examples, references, intro }
+}
+
 export const appendTranscript = (prev: string, t: string) => {
   const next = t.trim()
   if (!next) return prev
@@ -95,12 +231,15 @@ function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
     if (m.role === "assistant") {
       try {
         const parsed = JSON.parse(m.content)
+        const parsedHits = Array.isArray(parsed.hits) ? (parsed.hits as KnowledgeHit[]) : []
         items.push({
           id: m.id,
           role: "assistant",
-          content: parsed.reply ?? parsed.message ?? parsed.content ?? "",
+          content: parsed.answer ?? parsed.reply ?? parsed.message ?? parsed.content ?? "",
+          answer: parsed.answer ?? null,
           question: parsed.question ?? "",
           options: parsed.options ?? [],
+          hits: parsedHits,
           allowFreeText: parsed.allow_free_text ?? true,
           step: clampStep(parsed.step) ?? undefined,
           done: parsed.done,
@@ -237,12 +376,15 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       return next
     })
     const stepForMessage = normalizedStep ?? computedStep
+    const replyText = res.answer?.trim() ? res.answer.trim() : res.reply
     const assistantMessage: ChatMessage = {
       id: `assistant-${crypto.randomUUID()}`,
       role: "assistant",
-      content: res.reply,
+      content: replyText,
+      answer: res.answer ?? null,
       question: res.question,
       options: res.options ?? [],
+      hits: res.hits ?? [],
       allowFreeText: res.allow_free_text ?? true,
       step: stepForMessage,
       done: Boolean(res.done),
@@ -338,6 +480,19 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
     const isAssistant = msg.role === "assistant"
     const replyText = (msg.content || "").trim()
     const questionText = (msg.question || "").trim()
+    const parsedExamples = isAssistant ? parseExamples(replyText) : { examples: [], references: [], intro: "" }
+    const hasExamples = parsedExamples.examples.length > 0
+    const safeReplyText = stripMarkdown(replyText)
+
+    const renderSection = (label: string, value?: string) => {
+      if (!value) return null
+      return (
+        <div className="space-y-1">
+          <strong className="text-[12px] font-semibold text-slate-700">{label}</strong>
+          <p className="text-[13px] leading-relaxed text-slate-800 whitespace-pre-line break-words">{value}</p>
+        </div>
+      )
+    }
 
     const bubble = (
       <ChatBubble
@@ -349,10 +504,45 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
         }
       >
         {isAssistant ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-[11px] tracking-wide text-slate-500">Yorizoからのメッセージ</p>
-            {replyText && (
-              <p className="text-sm text-slate-900 leading-relaxed whitespace-pre-line break-words">{replyText}</p>
+            {hasExamples ? (
+              <div className="space-y-3">
+                {parsedExamples.intro && (
+                  <p className="text-sm text-slate-900 leading-relaxed whitespace-pre-line break-words">
+                    {parsedExamples.intro}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {parsedExamples.examples.map((ex, index) => (
+                    <details
+                      key={`${msg.id}-example-${index}`}
+                      className="group rounded-xl border border-slate-200 bg-slate-50 shadow-sm"
+                      open={index === 0}
+                    >
+                      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-slate-900 list-none">
+                        <span className="flex items-center gap-2">
+                          <span>{emojiForNo(ex.no)}</span>
+                          <span className="break-words">{ex.title}</span>
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-slate-500 transition-transform duration-200 group-open:rotate-180" />
+                      </summary>
+                      <div className="px-3 pb-3 pt-1 space-y-2">
+                        {renderSection("状況", ex.situation)}
+                        {renderSection("打ち手", ex.action)}
+                        {renderSection("手順", ex.steps)}
+                        {renderSection("注意点", ex.caution)}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              safeReplyText && (
+                <p className="text-sm text-slate-900 leading-relaxed whitespace-pre-line break-words">
+                  {safeReplyText}
+                </p>
+              )
             )}
             {questionText && (
               <p className="text-sm font-semibold text-slate-800 leading-relaxed whitespace-pre-line break-words">
