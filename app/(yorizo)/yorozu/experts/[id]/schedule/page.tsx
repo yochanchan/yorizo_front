@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { CalendarDays, Clock, Loader2, MapPin, Star } from "lucide-react"
+
+import { YoriCard } from "@/components/YoriCard"
+import { YoriSectionCard } from "@/components/YoriSectionCard"
 import { getExpertAvailability, getExperts, type AvailabilityDay, type Expert } from "@/lib/api"
 
 export default function SchedulePage() {
@@ -28,11 +31,12 @@ export default function SchedulePage() {
         setExpert(experts.find((e) => e.id === expertId) ?? null)
         setAvailability(avail)
         if (avail.length > 0) {
-          setSelectedDate(avail[0].date)
+          const firstOpen = avail.find((day) => availableCountForDay(day) > 0) ?? avail[0]
+          setSelectedDate(firstOpen?.date ?? null)
         }
       } catch (err) {
         console.error(err)
-        setError("予約可能な枠を取得できませんでした。")
+        setError("予約可能な枠を取得できませんでした。時間をおいて再度お試しください。")
       } finally {
         setIsLoading(false)
       }
@@ -49,16 +53,25 @@ export default function SchedulePage() {
     }
   }, [conversationId])
 
-  const slotsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return []
-    const day = availability.find((d) => d.date === selectedDate)
-    return day?.slots ?? []
-  }, [availability, selectedDate])
+  const selectedDay = useMemo(
+    () => availability.find((d) => d.date === selectedDate),
+    [availability, selectedDate],
+  )
+  const slotsForSelectedDate = selectedDay?.slots ?? []
+  const bookedSlotsForSelectedDate = useMemo(
+    () => new Set(selectedDay?.booked_slots ?? []),
+    [selectedDay?.booked_slots],
+  )
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    return `${d.getMonth() + 1}/${d.getDate()}`
+    const parts = dateStr.split("-")
+    if (parts.length < 3) return dateStr
+    const month = Number(parts[1])
+    const day = Number(parts[2])
+    return `${month}/${day}`
   }
+
+  const availableCountForDay = (day: AvailabilityDay) => day.available_count
 
   const handleConfirm = () => {
     if (!expertId || !selectedDate || !selectedSlot) return
@@ -74,23 +87,23 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 space-y-4 pt-2">
-      <div className="flex items-center gap-2">
+    <div className="yori-shell py-4 pb-24 space-y-4">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="h-9 w-9 rounded-full bg-white/90 border border-white/70 flex items-center justify-center shadow-sm text-slate-600"
+          className="yori-chip bg-white hover:bg-[var(--yori-surface-muted)]"
         >
-          ←
+          もどる
         </button>
-        <div>
-          <p className="text-lg font-bold text-slate-900">相談予約</p>
-          <p className="text-xs text-slate-500">予約可能な日付を選択してください</p>
+        <div className="space-y-1">
+          <p className="text-lg font-bold text-[var(--yori-ink-strong)]">相談予約</p>
+          <p className="text-sm text-[var(--yori-ink)]">翌日〜28日先の平日の空き枠のみ表示します</p>
         </div>
       </div>
 
       {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-slate-600">
+        <div className="flex items-center gap-2 text-sm text-[var(--yori-ink)]">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>読み込み中...</span>
         </div>
@@ -98,18 +111,22 @@ export default function SchedulePage() {
       {error && <p className="text-xs text-rose-600">{error}</p>}
 
       {expert && (
-        <div className="rounded-3xl bg-white/95 border border-amber-100 shadow-sm p-4 space-y-1">
+        <YoriSectionCard
+          title="選択中の専門家"
+          description={expert.title ?? undefined}
+          icon={<Star className="h-5 w-5 text-amber-500 fill-amber-400" />}
+        >
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-xs font-semibold text-[#13274B]">
+            <div className="h-12 w-12 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] flex items-center justify-center text-sm font-semibold text-[var(--yori-ink-strong)]">
               {expert.name.slice(0, 2)}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-900">{expert.name}</p>
-              <p className="text-xs text-slate-700">{expert.title}</p>
-              <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-                <span>{expert.rating.toFixed(1)}</span>
-                <span>({expert.review_count})</span>
+            <div className="space-y-1 flex-1">
+              <p className="text-base font-semibold text-[var(--yori-ink-strong)]">{expert.name}</p>
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--yori-ink)]">
+                <span className="flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                  {expert.rating.toFixed(1)} ({expert.review_count})
+                </span>
                 {expert.location_prefecture && (
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
@@ -117,98 +134,100 @@ export default function SchedulePage() {
                   </span>
                 )}
               </div>
+              {expert.description && <p className="text-sm text-[var(--yori-ink)]">{expert.description}</p>}
             </div>
           </div>
-        </div>
+        </YoriSectionCard>
       )}
 
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <CalendarDays className="h-4 w-4" />
-          <span>予約可能日</span>
-        </div>
-        <div className="grid grid-cols-5 gap-2">
-          {availability.map((day) => (
-            <button
-              key={day.date}
-              type="button"
-              onClick={() => {
-                setSelectedDate(day.date)
-                setSelectedSlot(null)
-              }}
-              className={`rounded-2xl border px-2 py-2 text-xs font-semibold ${
-                selectedDate === day.date
-                  ? "border-amber-400 bg-amber-50 text-[#13274B]"
-                  : "border-slate-200 bg-white text-slate-700"
-              }`}
-            >
-              {formatDate(day.date)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <Clock className="h-4 w-4" />
-          <span>時間を選択</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {slotsForSelectedDate.map((slot) => (
-            <button
-              key={slot}
-              type="button"
-              onClick={() => setSelectedSlot(slot)}
-              className={`rounded-full px-3 py-2 text-xs font-semibold border ${
-                selectedSlot === slot
-                  ? "bg-[#13274B] text-white border-[#13274B]"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-            >
-              {slot}
-            </button>
-          ))}
-          {slotsForSelectedDate.length === 0 && (
-            <p className="text-xs text-slate-500">この日は予約枠がありません。</p>
+      <YoriSectionCard
+        title="日付を選択"
+        description="空きのある平日のみ表示します。満席の日付は選択できません。"
+        icon={<CalendarDays className="h-5 w-5 text-[var(--yori-ink-strong)]" />}
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {availability.map((day) => {
+            const availableCount = availableCountForDay(day)
+            const disabled = availableCount === 0
+            return (
+              <YoriCard
+                key={day.date}
+                variant="choiceRequired"
+                title={formatDate(day.date)}
+                description={disabled ? "満席" : `空き${availableCount}`}
+                selected={selectedDate === day.date}
+                disabled={disabled}
+                onClick={() => {
+                  setSelectedDate(day.date)
+                  setSelectedSlot(null)
+                }}
+                className="w-full"
+              />
+            )
+          })}
+          {availability.length === 0 && (
+            <p className="text-sm text-[var(--yori-ink)] col-span-2">現在予約可能な日程がありません。</p>
           )}
         </div>
-      </div>
+      </YoriSectionCard>
 
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-slate-800">相談方法を選択</p>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
+      <YoriSectionCard
+        title="時間を選択"
+        description={selectedDate ? `${formatDate(selectedDate)} の空き枠` : "日付を選択してください"}
+        icon={<Clock className="h-5 w-5 text-[var(--yori-ink-strong)]" />}
+      >
+        {selectedDate ? (
+          <div className="grid grid-cols-2 gap-3">
+            {slotsForSelectedDate.map((slot) => {
+              const isBooked = bookedSlotsForSelectedDate.has(slot)
+              return (
+                <YoriCard
+                  key={slot}
+                  variant="choiceOptional"
+                  title={slot}
+                  description={isBooked ? "予約済み" : undefined}
+                  selected={selectedSlot === slot}
+                  disabled={isBooked}
+                  onClick={() => setSelectedSlot(slot)}
+                  className="w-full"
+                />
+              )
+            })}
+            {slotsForSelectedDate.length === 0 && (
+              <p className="text-sm text-[var(--yori-ink)] col-span-2">この日は表示できる枠がありません。</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--yori-ink)]">日付を選択すると時間枠が表示されます。</p>
+        )}
+      </YoriSectionCard>
+
+      <YoriSectionCard title="相談方法">
+        <div className="grid grid-cols-2 gap-3">
+          <YoriCard
+            variant="choiceOptional"
+            title="オンライン"
+            selected={channel === "online"}
             onClick={() => setChannel("online")}
-            className={`rounded-full py-3 text-sm font-semibold border ${
-              channel === "online"
-                ? "bg-[#13274B] text-white border-[#13274B]"
-                : "bg-white text-slate-700 border-slate-200"
-            }`}
-          >
-            オンライン
-          </button>
-          <button
-            type="button"
+            className="w-full"
+          />
+          <YoriCard
+            variant="choiceOptional"
+            title="対面"
+            selected={channel === "in-person"}
             onClick={() => setChannel("in-person")}
-            className={`rounded-full py-3 text-sm font-semibold border ${
-              channel === "in-person"
-                ? "bg-[#13274B] text-white border-[#13274B]"
-                : "bg-white text-slate-700 border-slate-200"
-            }`}
-          >
-            対面
-          </button>
+            className="w-full"
+          />
         </div>
-      </div>
+      </YoriSectionCard>
 
       <button
         type="button"
         onClick={handleConfirm}
         disabled={!selectedDate || !selectedSlot}
-        className="w-full rounded-full bg-[#13274B] text-white py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform disabled:bg-slate-300 disabled:cursor-not-allowed"
+        className="btn-primary w-full py-3 text-center text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        この日時で相談予約へ進む
+        この日時で相談を申し込む
       </button>
     </div>
   )

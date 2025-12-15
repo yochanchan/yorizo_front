@@ -329,7 +329,9 @@ describe("lib/api high-level wrappers", () => {
   })
 
   it("getExpertAvailability returns availability or empty array", async () => {
-    const availability: AvailabilityDay[] = [{ date: "2024-01-01", slots: ["10:00"] }]
+    const availability: AvailabilityDay[] = [
+      { date: "2024-01-01", slots: ["10:00-11:00"], booked_slots: [], available_count: 1 },
+    ]
     mockFetchJson({ availability })
 
     const result = await getExpertAvailability("e1")
@@ -485,7 +487,7 @@ describe("lib/api high-level wrappers", () => {
       booking_id: "b1",
       expert_id: "e1",
       date: "2024-01-01",
-      time_slot: "10:00",
+      time_slot: "10:00-11:00",
       channel: "online",
       message: "ok",
     }
@@ -494,7 +496,7 @@ describe("lib/api high-level wrappers", () => {
     const result = await createConsultationBooking({
       expert_id: "e1",
       date: "2024-01-01",
-      time_slot: "10:00",
+      time_slot: "10:00-11:00",
       channel: "online",
       name: "User",
     })

@@ -1,20 +1,20 @@
 "use client"
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react"
-import { FileUp, SendHorizontal, X } from "lucide-react"
+import clsx from "clsx"
+import { ArrowRight, FileUp, SendHorizontal, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-import { VoiceInputControls } from "@/components/voice/VoiceInputControls"
 import { ChatBubble } from "@/components/ui/chat-bubble"
 import { ChatQuickOptions } from "@/components/ui/chat-quick-options"
 import { YorizoAvatar } from "@/components/YorizoAvatar"
 import { ThinkingRow } from "@/components/ThinkingRow"
+import { ChatSpeechInput } from "@/components/voice/ChatSpeechInput"
 import {
   ApiError,
   LLM_FALLBACK_MESSAGE,
   getConversationDetail,
   guidedChatTurn,
-  refreshConsultationMemo,
   uploadDocument,
   type ChatOption,
   type ChatTurnResponse,
@@ -82,6 +82,13 @@ function normalizeUserContent(content: string) {
   return content
 }
 
+export const appendTranscript = (prev: string, t: string) => {
+  const next = t.trim()
+  if (!next) return prev
+  const base = prev.replace(/\s*$/, "")
+  return base ? `${base} ${next}` : next
+}
+
 function hydrateConversation(detail: ConversationDetail): ChatMessage[] {
   const items: ChatMessage[] = []
   detail.messages.forEach((m) => {
@@ -120,18 +127,16 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [voiceStatus, setVoiceStatus] = useState<"idle" | "recording" | "transcribing">("idle")
   const [bootstrapLoading, setBootstrapLoading] = useState(!!initialConversationId && !reset)
   const [error, setError] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<string | null>(null)
-  const [voiceMessage, setVoiceMessage] = useState<string | null>(null)
-  const [memoLoading, setMemoLoading] = useState(false)
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -194,43 +199,27 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }, [initialConversationId, reset])
 
   const lastAssistant = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant"), [messages])
-  const effectiveStep = useMemo(() => {
-    const assistantStep = clampStep(lastAssistant?.step)
-    if (assistantStep !== null) return assistantStep
-    return clampStep(localStep) ?? 0
-  }, [lastAssistant, localStep])
-  const currentStep = clampStep(effectiveStep) ?? 0
+  const hasUserAnswer = useMemo(() => messages.some((m) => m.role === "user"), [messages])
   const quickOptions = lastAssistant?.options ?? []
-  const allowFreeText = lastAssistant?.allowFreeText ?? true
-  const canSend = allowFreeText && input.trim().length > 0 && !loading
-  const inputPlaceholder = allowFreeText ? "ご相談内容をご入力ください" : "選択肢から選んでください"
-  const hasUserMessage = useMemo(() => messages.some((m) => m.role === "user"), [messages])
-  const canGenerateMemo = Boolean(conversationId && hasUserMessage)
+  const voiceBusy = voiceStatus !== "idle"
+  const canSend = input.trim().length > 0 && !loading && !voiceBusy
+  const canOpenMemo = Boolean(conversationId) && !(loading || voiceBusy)
+  const inputPlaceholder = "ご相談内容を入力してください"
+  const sendButtonClass = clsx(
+    "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors",
+    canSend
+      ? "bg-[var(--yori-primary)] text-[var(--yori-primary-ink)] shadow-sm hover:brightness-105"
+      : "bg-slate-100 text-slate-600 disabled:opacity-40 disabled:cursor-default",
+  )
 
   const handleUploadClick = () => fileInputRef.current?.click()
 
-  const resetTextareaHeight = () => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = "44px"
-  }
-
-  const adjustTextareaHeight = () => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = "0px"
-    const next = Math.min(el.scrollHeight, 140)
-    el.style.height = `${Math.max(next, 44)}px`
-  }
-
   const handleVoiceTranscript = (text: string) => {
-    setInput(text)
-    setTimeout(adjustTextareaHeight, 0)
+    setInput((prev) => appendTranscript(prev, text))
   }
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
-    adjustTextareaHeight()
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -295,10 +284,9 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }
 
   const handleOptionClick = async (option: ChatOption) => {
-    if (loading) return
+    if (loading || voiceBusy) return
     addUserMessage(option.label, { type: "choice", choiceId: option.id })
     setInput("")
-    resetTextareaHeight()
     await sendToBackend({
       message: option.label,
       selection: { type: "choice", id: option.id, label: option.label },
@@ -310,24 +298,7 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
     const text = input.trim()
     addUserMessage(text, { type: "free_text" })
     setInput("")
-    resetTextareaHeight()
     await sendToBackend({ message: text, selection: { type: "free_text", text } })
-  }
-
-  const handleGenerateMemo = async () => {
-    if (!conversationId) return
-    setMemoLoading(true)
-    setError(null)
-    try {
-      await refreshConsultationMemo(conversationId)
-      router.push(`/memory/${conversationId}/memo`)
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "相談メモの作成に失敗しました。もう一度お試しください。"
-      setError(message)
-    } finally {
-      setMemoLoading(false)
-    }
   }
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -438,12 +409,13 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
           {error && <p className="text-xs text-rose-600">{error}</p>}
           {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
           {uploadMessage && <p className="text-xs text-emerald-600">{uploadMessage}</p>}
-          {voiceMessage && <p className="text-xs text-[var(--yori-ink-soft)]">{voiceMessage}</p>}
         </div>
       )}
 
+
+
       {quickOptions.length > 0 && (
-        <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading} />
+        <ChatQuickOptions options={quickOptions} onSelect={handleOptionClick} disabled={loading || voiceBusy} />
       )}
 
       {attachments.length > 0 && (
@@ -472,54 +444,42 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       )}
 
       <form onSubmit={handleSubmit} className="sticky bottom-0 inset-x-0 border-t bg-slate-50/95 backdrop-blur">
-        <div className="mx-auto max-w-3xl px-3 py-2 md:px-4 md:py-3 space-y-3">
-          <button
-            type="button"
-            onClick={handleGenerateMemo}
-            disabled={!canGenerateMemo || memoLoading}
-            className="w-full rounded-full bg-[var(--yori-primary)] text-[var(--yori-primary-ink)] px-4 py-3 text-sm font-semibold shadow-md hover:shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {memoLoading ? "まとめています..." : "ここまでの内容を相談メモにまとめる"}
-          </button>
+        <div className="mx-auto max-w-3xl px-3 py-2 md:px-4 md:py-3 space-y-2">
           <div className="flex items-center gap-2 rounded-2xl border bg-white px-4 py-2 shadow-sm">
             <button
               type="button"
               onClick={handleUploadClick}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-              disabled={uploading}
-              aria-label="ファイルを添付"
+              disabled={uploading || voiceBusy}
+              data-testid="chat-attach"
+              aria-label="資料を添付"
             >
               <FileUp className="h-4 w-4" />
             </button>
             <textarea
-              ref={textareaRef}
               value={input}
               onChange={handleInputChange}
+              disabled={voiceBusy}
               placeholder={inputPlaceholder}
-              rows={1}
-              style={{ height: `44px`, overflowY: "auto" }}
-              className="flex-1 h-full min-h-[44px] max-h-[140px] resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px]"
-              disabled={!allowFreeText}
+              rows={3}
+              data-testid="chat-input"
+              className="flex-1 h-full resize-none border-0 bg-transparent px-0 py-0 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-[14px] overflow-y-auto"
             />
             <button
               type="submit"
-              disabled={!allowFreeText || !input.trim() || loading}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-default"
-              aria-label="Send"
+              disabled={!canSend}
+              className={sendButtonClass}
+              data-testid="chat-send"
+              aria-label="送信"
             >
               <SendHorizontal className="h-4 w-4" />
             </button>
           </div>
-          <VoiceInputControls
+          <ChatSpeechInput
             onTranscript={handleVoiceTranscript}
-            onStatusChange={(status, info) => {
-              if (info) {
-                setVoiceMessage(info)
-              } else if (status === "recording") {
-                setVoiceMessage("録音中です（最大1分で自動停止）")
-              }
-            }}
+            onStatusChange={setVoiceStatus}
             disabled={loading}
+            data-testid="chat-speech-input"
           />
         </div>
         <input
@@ -530,6 +490,26 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
           onChange={handleFileChange}
         />
       </form>
+      {hasUserAnswer && (
+        <div className="yori-card p-4 space-y-3">
+          <button
+            type="button"
+            data-testid="chat-open-memo"
+            disabled={!canOpenMemo}
+            onClick={() => {
+              if (!conversationId) return
+              router.push(`/memory/${conversationId}/memo`)
+            }}
+            className="btn-primary w-full px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            相談メモを開く
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          {!conversationId && (
+            <p className="text-xs text-[var(--yori-ink-soft)]">会話を準備しています… 送信後に開けるようになります。</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,18 +1,35 @@
 "use client"
 
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { Loader2, MapPin, Star } from "lucide-react"
+import { Loader2, MapPin, Shield, Star } from "lucide-react"
+
+import { YoriSectionCard } from "@/components/YoriSectionCard"
 import {
+  ApiError,
   createConsultationBooking,
-  getExperts,
   getConversations,
+  getExperts,
   type ConsultationBookingPayload,
-  type ConsultationBookingResponse,
   type Expert,
 } from "@/lib/api"
 
 const USER_ID = "demo-user"
+const CONFLICT_MESSAGE = "この時間枠は既に予約されています。別の枠を選んでください"
+
+type FormState = {
+  name: string
+  phone: string
+  email: string
+  note: string
+}
+
+const DEFAULT_FORM: FormState = {
+  name: "ARIMAX",
+  phone: "090-9999-9999",
+  email: "ARIMAX@example.com",
+  note: "",
+}
 
 export default function ConfirmPage() {
   const params = useParams<{ id: string }>()
@@ -25,16 +42,10 @@ export default function ConfirmPage() {
   const [conversationId, setConversationId] = useState(searchParams.get("conversationId") || "")
 
   const [expert, setExpert] = useState<Expert | null>(null)
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    note: "",
-    agree: false,
-  })
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<ConsultationBookingResponse | null>(null)
+  const [isPolicyOpen, setIsPolicyOpen] = useState(false)
 
   useEffect(() => {
     const fetchExpert = async () => {
@@ -72,11 +83,28 @@ export default function ConfirmPage() {
     void loadLatestConversation()
   }, [conversationId])
 
+  useEffect(() => {
+    if (!isPolicyOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsPolicyOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isPolicyOpen])
+
+  const formattedDate = useMemo(() => {
+    const parts = date.split("-")
+    if (parts.length < 3) return date
+    const month = Number(parts[1])
+    const day = Number(parts[2])
+    return `${month}/${day}`
+  }, [date])
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!expertId || !date || !time) return
-    if (!form.name || !form.agree) {
-      setError("お名前と同意チェックを入力してください。")
+    if (!form.name.trim()) {
+      setError("お名前を入力してください")
       return
     }
     setIsSubmitting(true)
@@ -84,7 +112,7 @@ export default function ConfirmPage() {
     try {
       const payload: ConsultationBookingPayload = {
         expert_id: expertId,
-        user_id: "demo-user",
+        user_id: USER_ID,
         conversation_id: conversationId || undefined,
         date,
         time_slot: time,
@@ -94,45 +122,49 @@ export default function ConfirmPage() {
         email: form.email || undefined,
         note: form.note || undefined,
       }
-      const data = await createConsultationBooking(payload)
-      setResult(data)
+      await createConsultationBooking(payload)
+      router.replace("/appoint")
     } catch (err) {
       console.error(err)
-      setError("予約の送信に失敗しました。もう一度お試しください。")
+      if (err instanceof ApiError && err.status === 409) {
+        setError(CONFLICT_MESSAGE)
+      } else {
+        setError("予約の送信に失敗しました。時間をおいて再度お試しください。")
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col flex-1 px-4 pb-24 space-y-4 pt-2">
-      <div className="flex items-center gap-2">
+    <div className="yori-shell py-4 pb-24 space-y-4">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="h-9 w-9 rounded-full bg-white/90 border border-white/70 flex items-center justify-center shadow-sm text-slate-600"
+          className="yori-chip bg-white hover:bg-[var(--yori-surface-muted)]"
         >
-          ←
+          もどる
         </button>
-        <div>
-          <p className="text-lg font-bold text-slate-900">相談予約</p>
-          <p className="text-xs text-slate-500">連絡先を入力して送信してください</p>
+        <div className="space-y-1">
+          <p className="text-lg font-bold text-[var(--yori-ink-strong)]">連絡先の確認</p>
+          <p className="text-sm text-[var(--yori-ink)]">入力後に予約を確定します</p>
         </div>
       </div>
 
       {expert && (
-        <div className="rounded-3xl bg-white/95 border border-amber-100 shadow-sm p-4 space-y-1">
+        <YoriSectionCard title="専門家" description={expert.title ?? undefined}>
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-xs font-semibold text-[#13274B]">
+            <div className="h-12 w-12 rounded-full bg-[var(--yori-secondary)] border border-[var(--yori-outline)] flex items-center justify-center text-sm font-semibold text-[var(--yori-ink-strong)]">
               {expert.name.slice(0, 2)}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-900">{expert.name}</p>
-              <p className="text-xs text-slate-700">{expert.title}</p>
-              <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-                <span>{expert.rating.toFixed(1)}</span>
-                <span>({expert.review_count})</span>
+            <div className="space-y-1 flex-1">
+              <p className="text-base font-semibold text-[var(--yori-ink-strong)]">{expert.name}</p>
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--yori-ink)]">
+                <span className="flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                  {expert.rating.toFixed(1)} ({expert.review_count})
+                </span>
                 {expert.location_prefecture && (
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
@@ -140,102 +172,146 @@ export default function ConfirmPage() {
                   </span>
                 )}
               </div>
+              {expert.description && <p className="text-sm text-[var(--yori-ink)]">{expert.description}</p>}
             </div>
           </div>
-        </div>
+        </YoriSectionCard>
       )}
 
-      <div className="rounded-3xl bg-white/95 border border-amber-100 shadow-sm p-4 space-y-2">
-        <p className="text-sm font-semibold text-slate-800">選択された予約内容</p>
-        <p className="text-xs text-slate-700">{date} / {time}</p>
-        <p className="text-xs text-slate-700">相談方法: {channel === "online" ? "オンライン" : "対面"}</p>
-      </div>
-
-      {result ? (
-        <div className="rounded-3xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
-          <p className="text-sm font-semibold text-emerald-700">予約を受け付けました</p>
-          <p className="text-xs text-emerald-700">{result.message}</p>
-          <p className="text-[11px] text-emerald-600">予約ID: {result.booking_id}</p>
-          {result.meeting_url ? (
-            <p className="text-xs text-emerald-700 break-all">
-              オンラインURL:{" "}
-              <a className="underline" href={result.meeting_url} target="_blank" rel="noreferrer">
-                {result.meeting_url}
-              </a>
-            </p>
-          ) : (
-            channel === "online" && <p className="text-[11px] text-emerald-700">オンラインURLは確定後にお知らせします。</p>
-          )}
-          {result.line_contact && <p className="text-xs text-emerald-700 break-all">LINE連絡先: {result.line_contact}</p>}
-          <button
-            type="button"
-            onClick={() => router.push("/yorozu")}
-            className="w-full rounded-full bg-[#13274B] text-white py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform"
-          >
-            一覧に戻る
-          </button>
+      <YoriSectionCard title="選択した日程">
+        <div className="grid grid-cols-2 gap-3 text-sm text-[var(--yori-ink-strong)]">
+          <div className="yori-card p-3">
+            <p className="text-xs text-[var(--yori-ink)]">日付</p>
+            <p className="font-semibold text-[var(--yori-ink-strong)]">{formattedDate}</p>
+          </div>
+          <div className="yori-card p-3">
+            <p className="text-xs text-[var(--yori-ink)]">時間</p>
+            <p className="font-semibold text-[var(--yori-ink-strong)]">{time}</p>
+          </div>
+          <div className="yori-card p-3 col-span-2">
+            <p className="text-xs text-[var(--yori-ink)]">相談方法</p>
+            <p className="font-semibold text-[var(--yori-ink-strong)]">{channel === "online" ? "オンライン" : "対面"}</p>
+          </div>
         </div>
-      ) : (
+      </YoriSectionCard>
+
+      <YoriSectionCard
+        title="連絡先を入力"
+        description="予約の確定に必要な連絡先を入力してください"
+        icon={<Shield className="h-5 w-5 text-[var(--yori-ink-strong)]" />}
+      >
         <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">お名前</label>
+            <label className="text-xs font-semibold text-[var(--yori-ink-strong)]" htmlFor="booking-name">
+              お名前
+            </label>
             <input
+              id="booking-name"
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
+              className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
               placeholder="山田太郎"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">電話番号</label>
+            <label className="text-xs font-semibold text-[var(--yori-ink-strong)]" htmlFor="booking-phone">
+              電話番号
+            </label>
             <input
+              id="booking-phone"
               value={form.phone}
               onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
+              className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
               placeholder="090-1234-5678"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">メールアドレス</label>
+            <label className="text-xs font-semibold text-[var(--yori-ink-strong)]" htmlFor="booking-email">
+              メールアドレス
+            </label>
             <input
+              id="booking-email"
               type="email"
               value={form.email}
               onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
+              className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
               placeholder="yamada@example.com"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">相談したい内容（任意）</label>
+            <label className="text-xs font-semibold text-[var(--yori-ink-strong)]" htmlFor="booking-note">
+              相談したい内容（任意）
+            </label>
             <textarea
+              id="booking-note"
               value={form.note}
               onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#13274B]"
+              className="w-full rounded-2xl border border-[var(--yori-outline)] bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--yori-tertiary)]"
               rows={3}
-              placeholder="最近の売上状況や気になっていることなど"
+              placeholder="最近の状況や気になっていることなど"
             />
           </div>
-          <label className="flex items-start gap-2 text-xs text-slate-700">
-            <input
-              type="checkbox"
-              checked={form.agree}
-              onChange={(e) => setForm((prev) => ({ ...prev, agree: e.target.checked }))}
-              className="mt-1"
-            />
-            <span>個人情報・プライバシーポリシーに同意する</span>
-          </label>
+          <div className="text-xs text-[var(--yori-ink)]">
+            <button type="button" className="underline" onClick={() => setIsPolicyOpen(true)}>
+              個人情報・プライバシーポリシー
+            </button>
+            をご確認ください（同意チェックは不要です）。
+          </div>
 
-          {error && <p className="text-xs text-rose-600">{error}</p>}
+          {error && (
+            <div className="space-y-2">
+              <p className="text-xs text-rose-600">{error}</p>
+              {error.includes("枠") && (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="text-xs underline text-[var(--yori-ink-strong)]"
+                >
+                  日程を選び直す
+                </button>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-full bg-[#13274B] text-white py-3 text-sm font-semibold shadow-sm active:scale-98 transition-transform flex items-center justify-center gap-2 disabled:bg-slate-300"
+            className="btn-primary w-full py-3 text-sm font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            <span>この内容で予約を申し込む</span>
+            <span>この内容で予約する</span>
           </button>
         </form>
+      </YoriSectionCard>
+
+      {isPolicyOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
+          onClick={() => setIsPolicyOpen(false)}
+        >
+          <div
+            className="yori-card max-w-xl w-full p-5 md:p-6 space-y-3 bg-white"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-base font-bold text-[var(--yori-ink-strong)]">個人情報・プライバシーポリシー</p>
+                <p className="text-sm text-[var(--yori-ink)]">入力いただいた情報は相談対応のみに利用します。</p>
+              </div>
+              <button type="button" className="text-sm underline" onClick={() => setIsPolicyOpen(false)}>
+                閉じる
+              </button>
+            </div>
+            <div className="space-y-2 text-sm text-[var(--yori-ink)] leading-relaxed">
+              <p>・利用目的: 予約の連絡、サービス向上のためにのみ利用します。</p>
+              <p>・第三者提供: 法令で定める場合を除き、同意なく第三者へ提供しません。</p>
+              <p>・安全管理: 適切なアクセス制限、暗号化等で保護します。</p>
+              <p>・問い合わせ: 開示・訂正・削除のご希望は運営窓口までご連絡ください。</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
