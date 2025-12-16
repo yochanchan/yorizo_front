@@ -121,8 +121,7 @@ export function useChatSpeechRecognition({ onTranscript, disabled = false }: Use
         }
       }
       recognizer.canceled = (_, e) => {
-        console.log("speech canceled", e.reason, e.errorDetails)
-        finalizeTranscript("error")
+        if (e.reason === sdk.CancellationReason.Error) finalizeTranscript("error")
       }
       recognizer.sessionStopped = () => finalizeTranscript()
 
