@@ -25,7 +25,14 @@ jest.mock("next/navigation", () => ({
 
 const mockReport: CompanyReport = {
   company: { id: "1", name: "Sample Company" },
-  radar: { axes: ["売上持続性"], periods: [{ label: "最新", scores: [3], raw_values: [100] }] },
+  radar: {
+    axes: ["売上持続性"],
+    periods: [
+      { label: "最新", scores: [3], raw_values: [100] },
+      { label: "前期", scores: [2], raw_values: [90] },
+      { label: "前々期", scores: [1], raw_values: [80] },
+    ],
+  },
   qualitative: { keieisha: {}, jigyo: {}, kankyo: {}, naibu: {} },
   current_state: "現状メモ",
   future_goal: "",
@@ -76,6 +83,11 @@ describe("CompanyReportPage", () => {
     expect(screen.queryByRole("button", { name: "レポートを更新" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "よろず支援拠点に相談する" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "もう一度タイプ診断する" })).toBeInTheDocument()
+
+    expect(screen.getByText("最新決算期")).toBeInTheDocument()
+    expect(screen.getByText("前期決算期")).toBeInTheDocument()
+    expect(screen.queryByText("前々期決算期")).not.toBeInTheDocument()
+    expect(screen.queryByText("前々期")).not.toBeInTheDocument()
   })
 
   it("shows the thinking row during report loading", async () => {

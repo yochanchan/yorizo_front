@@ -62,7 +62,7 @@ type KpiPeriodDto = {
   kpis?: KpiValueDto[]
 }
 
-type CompanyReportWithKpi = CompanyReport & {
+type CompanyReportWithKpi = Omit<CompanyReport, "radar"> & {
   radar: {
     axes: string[]
     periods: KpiPeriodDto[]
@@ -122,9 +122,9 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
   },
 ]
 
-const KPI_RADAR_COLOR_CURRENT = "#f97316"
-const KPI_RADAR_COLOR_PREVIOUS = "#3b82f6"
-const KPI_RADAR_COLOR_PRE_PREVIOUS = "#6b7280"
+const KPI_RADAR_COLOR_CURRENT = "#2563EB"
+const KPI_RADAR_FILL_CURRENT = "#60A5FA"
+const KPI_RADAR_COLOR_PREVIOUS = "#9CA3AF"
 
 type ExpandableSectionBodyProps = {
   children: ReactNode
@@ -279,11 +279,9 @@ const formatKpiValue = (key: KpiKey, raw: number | null | undefined): string => 
 const KpiLegend = ({
   currentColor,
   previousColor,
-  prePreviousColor,
 }: {
   currentColor: string
   previousColor: string
-  prePreviousColor: string
 }) => (
   <div className="flex flex-wrap justify-center gap-4 text-[11px] md:text-xs text-slate-600">
     <div className="inline-flex items-center gap-1">
@@ -293,10 +291,6 @@ const KpiLegend = ({
     <div className="inline-flex items-center gap-1">
       <span className="inline-block h-[6px] w-4 rounded-full" style={{ backgroundColor: previousColor }} />
       <span>前期決算期</span>
-    </div>
-    <div className="inline-flex items-center gap-1">
-      <span className="inline-block h-[6px] w-4 rounded-full" style={{ backgroundColor: prePreviousColor }} />
-      <span>前々期決算期</span>
     </div>
   </div>
 )
@@ -370,31 +364,29 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
     label,
     latest: periods[0]?.scores?.[idx] ?? 0,
     previous: periods[1]?.scores?.[idx] ?? 0,
-    pre_previous: periods[2]?.scores?.[idx] ?? 0,
   }))
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="w-full max-w-[360px] h-[220px] md:h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ReRadarChart data={chartData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-            <defs>
-              <linearGradient id="kpiRadarCurrent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={KPI_RADAR_COLOR_CURRENT} stopOpacity={0.45} />
-                <stop offset="100%" stopColor={KPI_RADAR_COLOR_CURRENT} stopOpacity={0.15} />
-              </linearGradient>
-            </defs>
-            <PolarGrid gridType="polygon" radialLines={false} stroke="#E2ECF5" strokeDasharray="3 3" />
+          <ReRadarChart
+            data={chartData}
+            startAngle={90}
+            endAngle={-270}
+            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <PolarGrid gridType="polygon" radialLines={false} stroke="#E5E7EB" />
             <PolarAngleAxis dataKey="label" tick={{ fontSize: 10, fill: "#64748b" }} />
             <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
             <Radar
               name="最新決算期"
               dataKey="latest"
               stroke={KPI_RADAR_COLOR_CURRENT}
-              strokeWidth={2.2}
-              fill="url(#kpiRadarCurrent)"
-              fillOpacity={1}
-              dot={false}
+              strokeWidth={2.5}
+              fill={KPI_RADAR_FILL_CURRENT}
+              fillOpacity={0.2}
+              dot={{ r: 4, fill: KPI_RADAR_COLOR_CURRENT, stroke: "#fff", strokeWidth: 2 }}
             >
               <LabelList
                 dataKey="latest"
@@ -420,19 +412,10 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
               name="前期決算期"
               dataKey="previous"
               stroke={KPI_RADAR_COLOR_PREVIOUS}
-              strokeWidth={1.8}
-              fill="none"
-              fillOpacity={0}
-              dot={false}
-            />
-            <Radar
-              name="前々期決算期"
-              dataKey="pre_previous"
-              stroke={KPI_RADAR_COLOR_PRE_PREVIOUS}
-              fill="none"
-              fillOpacity={0}
               strokeWidth={1.5}
-              dot={false}
+              fill={KPI_RADAR_COLOR_PREVIOUS}
+              fillOpacity={0.1}
+              dot={{ r: 3, fill: "#fff", stroke: KPI_RADAR_COLOR_PREVIOUS, strokeWidth: 1.5 }}
             />
           </ReRadarChart>
         </ResponsiveContainer>
@@ -556,9 +539,10 @@ export default function CompanyReportPage() {
   const rawAxes = report?.radar?.axes?.length ? report.radar.axes : KPI_AXES
   const axes = KPI_AXES.filter((label) => rawAxes.includes(label))
   const periods = useMemo(() => report?.radar?.periods ?? [], [report])
+  const radarPeriods = useMemo(() => periods.slice(0, 2), [periods])
   const isNoRadarData =
-    !periods.length ||
-    periods.every(
+    !radarPeriods.length ||
+    radarPeriods.every(
       (p) =>
         (!p.scores || p.scores.every((v) => v === null || v === undefined)) &&
         (!p.raw_values || p.raw_values.every((v) => v === null || v === undefined)),
@@ -664,14 +648,10 @@ export default function CompanyReportPage() {
                 決算書のデータが不足しているため、レーダーチャートを表示できません。
               </div>
             ) : (
-              <div className="mt-2 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
-                <div className="flex flex-col gap-3">
-                  <RadarChart periods={periods} axes={axes} />
-                  <KpiLegend
-                    currentColor={KPI_RADAR_COLOR_CURRENT}
-                    previousColor={KPI_RADAR_COLOR_PREVIOUS}
-                    prePreviousColor={KPI_RADAR_COLOR_PRE_PREVIOUS}
-                  />
+                <div className="mt-2 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
+                  <div className="flex flex-col gap-3">
+                  <RadarChart periods={radarPeriods} axes={axes} />
+                  <KpiLegend currentColor={KPI_RADAR_COLOR_CURRENT} previousColor={KPI_RADAR_COLOR_PREVIOUS} />
                   <div className="text-xs md:text-sm leading-relaxed text-slate-600">
                     <ExpandableSectionBody initialLines={3}>
                       <p>{summaryComment}</p>
@@ -679,7 +659,7 @@ export default function CompanyReportPage() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <ValueTable periods={periods} axes={axes} />
+                  <ValueTable periods={radarPeriods} axes={axes} />
                   <div className="mt-4 rounded-2xl bg-white/70 border border-[color:var(--yori-line-strong-2)] p-3 md:p-4">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-slate-800">指標の見方</h3>
@@ -946,8 +926,6 @@ export default function CompanyReportPage() {
     </div>
   )
 }
-
-
 
 
 
