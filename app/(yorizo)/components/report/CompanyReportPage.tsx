@@ -138,15 +138,6 @@ type AccordionSectionProps = {
   defaultOpen?: boolean
 }
 
-type KpiAccordionItemProps = {
-  kpiKey: string
-  title: string
-  summary: string
-  body: ReactNode
-  isOpen: boolean
-  onToggle: () => void
-}
-
 const summarizeOneLine = (text?: string | null): string => {
   if (!text) return ""
   const firstSentence = text.split("。")[0]
@@ -471,26 +462,11 @@ function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
   )
 }
 
-const KpiAccordionItem = ({ title, summary, body, isOpen, onToggle }: KpiAccordionItemProps) => (
-  <div className="mb-2 last:mb-0">
-    <button
-      type="button"
-      onClick={onToggle}
-      className={clsx(
-        "flex w-full items-center justify-between rounded-2xl border border-[color:var(--yori-line-strong)] px-4 py-3 text-left transition-colors",
-        "bg-[#F3FAFF]",
-        isOpen && "bg-[#E4F3FF]",
-      )}
-    >
-      <div className="flex flex-col">
-        <span className="text-xs font-semibold text-slate-800">{title}</span>
-        <span className="mt-0.5 text-[11px] text-slate-500">{summary}</span>
-      </div>
-      <ChevronDownIcon className={clsx("h-4 w-4 text-slate-400 transition-transform", isOpen && "rotate-180")} />
-    </button>
-    {isOpen && <div className="px-4 pb-4 pt-2 text-[11px] leading-relaxed text-slate-700">{body}</div>}
-  </div>
-)
+const splitKpiLabel = (label: string): { title: string; sub?: string } => {
+  const match = label.match(/^(.+?)（(.+?)）$/)
+  if (!match) return { title: label }
+  return { title: match[1] ?? label, sub: match[2] }
+}
 
 export default function CompanyReportPage() {
   const router = useRouter()
@@ -498,7 +474,7 @@ export default function CompanyReportPage() {
   const [report, setReport] = useState<CompanyReportWithKpi | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [openKpiKey, setOpenKpiKey] = useState<KpiKey | null>("sales_sustainability")
+  const [isKpiGuideOpen, setIsKpiGuideOpen] = useState(false)
   const [latestDocuments, setLatestDocuments] = useState<DocumentItem[]>([])
   const [expandedTodoId, setExpandedTodoId] = useState<string | null>(null)
   const [addingTodoId, setAddingTodoId] = useState<string | null>(null)
@@ -660,40 +636,61 @@ export default function CompanyReportPage() {
                 </div>
                 <div className="space-y-3">
                   <ValueTable periods={radarPeriods} axes={axes} />
-                  <div className="mt-4 rounded-2xl bg-white/70 border border-[color:var(--yori-line-strong-2)] p-3 md:p-4">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-slate-800">指標の見方</h3>
-                      <p className="text-[11px] text-slate-400">（タップすると詳しい説明が開きます）</p>
-                    </div>
-                    <div className="space-y-2">
-                      {KPI_DEFINITIONS.map((kpi) => (
-                        <KpiAccordionItem
-                          key={kpi.key}
-                          kpiKey={kpi.key}
-                          title={kpi.label}
-                          summary={kpi.short}
-                          body={
-                            <>
-                              <p className="mb-1">
-                                <span className="font-semibold">計算式：</span>
-                                {kpi.formula}
-                              </p>
-                              <p className="mb-1">
-                                <span className="font-semibold">見方：</span>
-                                {kpi.description}
-                              </p>
-                              {kpi.hint && (
-                                <p className="text-slate-500">
-                                  <span className="font-semibold">目安：</span>
-                                  {kpi.hint}
+                  <div className="rounded-2xl border border-[color:var(--yori-line-strong-2)] bg-white/70">
+                    <button
+                      type="button"
+                      aria-expanded={isKpiGuideOpen}
+                      aria-controls="kpi-guide-content"
+                      onClick={() => setIsKpiGuideOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
+                    >
+                      <span className="text-sm font-semibold text-slate-800">指標の見方</span>
+                      <ChevronDownIcon
+                        className={clsx("h-4 w-4 text-slate-400 transition-transform", isKpiGuideOpen && "rotate-180")}
+                      />
+                    </button>
+                    <div
+                      id="kpi-guide-content"
+                      hidden={!isKpiGuideOpen}
+                      className="border-t border-[color:var(--yori-line-strong-2)] px-3 pb-3 pt-3"
+                    >
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {KPI_DEFINITIONS.map((kpi) => {
+                          const { title, sub } = splitKpiLabel(kpi.label)
+                          return (
+                            <div
+                              key={kpi.key}
+                              className="rounded-2xl border border-[color:var(--yori-line-strong)] bg-white px-3 py-3"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-sm md:text-base font-bold text-slate-800 leading-snug">{title}</h4>
+                                {sub && (
+                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] md:text-[11px] font-semibold text-slate-600">
+                                    {sub}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[11px] md:text-xs text-slate-500">{kpi.short}</p>
+                              <div className="mt-2 space-y-1 text-[11px] md:text-xs leading-relaxed text-slate-700">
+                                <p>
+                                  <span className="font-semibold text-slate-800">計算式：</span>
+                                  {kpi.formula}
                                 </p>
-                              )}
-                            </>
-                          }
-                          isOpen={openKpiKey === kpi.key}
-                          onToggle={() => setOpenKpiKey((prev) => (prev === kpi.key ? null : kpi.key))}
-                        />
-                      ))}
+                                <p>
+                                  <span className="font-semibold text-slate-800">見方：</span>
+                                  {kpi.description}
+                                </p>
+                                {kpi.hint && (
+                                  <p className="text-slate-600">
+                                    <span className="font-semibold text-slate-800">目安：</span>
+                                    {kpi.hint}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -926,7 +923,6 @@ export default function CompanyReportPage() {
     </div>
   )
 }
-
 
 
 

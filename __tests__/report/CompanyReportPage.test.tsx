@@ -1,5 +1,6 @@
 import { act } from "react-dom/test-utils"
 import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 
 import CompanyReportPage from "@/app/(yorizo)/components/report/CompanyReportPage"
 import { getCompanyReport, type CompanyReport } from "@/lib/api"
@@ -61,6 +62,7 @@ describe("CompanyReportPage", () => {
 
   it("renders main action cards and fetches report", async () => {
     ;(getCompanyReport as jest.Mock).mockResolvedValue(mockReport)
+    const user = userEvent.setup()
     render(<CompanyReportPage />)
 
     await waitFor(() => expect(getCompanyReport).toHaveBeenCalled())
@@ -88,6 +90,17 @@ describe("CompanyReportPage", () => {
     expect(screen.getByText("前期決算期")).toBeInTheDocument()
     expect(screen.queryByText("前々期決算期")).not.toBeInTheDocument()
     expect(screen.queryByText("前々期")).not.toBeInTheDocument()
+
+    const kpiGuideButton = screen.getByRole("button", { name: "指標の見方" })
+    expect(kpiGuideButton).toHaveAttribute("aria-expanded", "false")
+    expect(screen.queryByRole("heading", { name: "収益性" })).not.toBeInTheDocument()
+
+    await user.click(kpiGuideButton)
+
+    expect(kpiGuideButton).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("heading", { name: "収益性" })).toBeInTheDocument()
+    expect(screen.getByText("営業利益率")).toBeInTheDocument()
+    expect(screen.getByText("営業利益 ÷ 売上高")).toBeInTheDocument()
   })
 
   it("shows the thinking row during report loading", async () => {
