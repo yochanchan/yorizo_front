@@ -135,20 +135,15 @@ export default function WizardPage() {
   const percent = Math.min(100, Math.round((Math.max(currentIndex, answeredCount) / total) * 100))
   const summary = useMemo(() => buildSummary(answers), [answers])
 
-  useEffect(() => {
-    if (current.type === "text") {
-      setTextValue(answers[current.id] ?? "")
-    } else {
-      setTextValue("")
-    }
-  }, [current.id, current.type, currentIndex, answers])
-
   const goNext = () => {
     if (currentIndex >= total - 1) {
       setDone(true)
       return
     }
-    setCurrentIndex((prev) => Math.min(prev + 1, total - 1))
+    const nextIndex = Math.min(currentIndex + 1, total - 1)
+    const next = QUESTIONS[nextIndex]
+    setCurrentIndex(nextIndex)
+    setTextValue(next.type === "text" ? answers[next.id] ?? "" : "")
   }
 
   const clearThinkingTimer = () => {
@@ -182,7 +177,10 @@ export default function WizardPage() {
     clearThinkingTimer()
     setThinking(false)
     if (currentIndex === 0) return
-    setCurrentIndex((prev) => Math.max(prev - 1, 0))
+    const prevIndex = Math.max(currentIndex - 1, 0)
+    const prev = QUESTIONS[prevIndex]
+    setCurrentIndex(prevIndex)
+    setTextValue(prev.type === "text" ? answers[prev.id] ?? "" : "")
   }
 
   const handleAnswer = (value: string) => {

@@ -126,11 +126,6 @@ const KPI_RADAR_COLOR_CURRENT = "#2563EB"
 const KPI_RADAR_FILL_CURRENT = "#60A5FA"
 const KPI_RADAR_COLOR_PREVIOUS = "#9CA3AF"
 
-type ExpandableSectionBodyProps = {
-  children: ReactNode
-  initialLines?: 2 | 3 | 4 | 5
-}
-
 type AccordionSectionProps = {
   title: string
   summary: string
@@ -306,38 +301,6 @@ function AccordionSection({ title, summary, children, defaultOpen = false }: Acc
       </div>
       {open && <div className="mt-3 text-xs md:text-sm leading-relaxed text-slate-700 space-y-2">{children}</div>}
     </section>
-  )
-}
-
-function ExpandableSectionBody({ children, initialLines = 3 }: ExpandableSectionBodyProps) {
-  const [open, setOpen] = useState(false)
-  const clampClass =
-    initialLines === 2
-      ? "line-clamp-2"
-      : initialLines === 4
-        ? "line-clamp-4"
-        : initialLines === 5
-          ? "line-clamp-5"
-          : "line-clamp-3"
-
-  return (
-    <div className="mt-2">
-      <div className="md:hidden">
-        <div className={open ? "text-sm leading-relaxed text-slate-700" : `text-sm leading-relaxed text-slate-700 ${clampClass}`}>
-          {children}
-        </div>
-        <div className="mt-2 border-t border-[color:var(--yori-line-strong-2)] pt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center text-xs font-semibold text-sky-600 hover:text-sky-700"
-          >
-            {open ? "閉じる ▲" : "もっと見る ▼"}
-          </button>
-        </div>
-      </div>
-      <div className="hidden md:block text-sm leading-relaxed text-slate-700">{children}</div>
-    </div>
   )
 }
 
@@ -628,11 +591,7 @@ export default function CompanyReportPage() {
                   <div className="flex flex-col gap-3">
                   <RadarChart periods={radarPeriods} axes={axes} />
                   <KpiLegend currentColor={KPI_RADAR_COLOR_CURRENT} previousColor={KPI_RADAR_COLOR_PREVIOUS} />
-                  <div className="text-xs md:text-sm leading-relaxed text-slate-600">
-                    <ExpandableSectionBody initialLines={3}>
-                      <p>{summaryComment}</p>
-                    </ExpandableSectionBody>
-                  </div>
+                  <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{summaryComment}</p>
                 </div>
                 <div className="space-y-3">
                   <ValueTable periods={radarPeriods} axes={axes} />
@@ -923,7 +882,6 @@ export default function CompanyReportPage() {
     </div>
   )
 }
-
 
 
 

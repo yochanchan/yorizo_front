@@ -3,11 +3,14 @@ import { render, screen } from "@testing-library/react"
 import { YoriCard } from "@/components/YoriCard"
 
 jest.mock("next/link", () => {
-  return ({ children, href, ...rest }: any) => (
-    <a href={href as string} {...rest}>
-      {children}
-    </a>
-  )
+  function MockLink({ children, href, ...rest }: any) {
+    return (
+      <a href={href as string} {...rest}>
+        {children}
+      </a>
+    )
+  }
+  return MockLink
 })
 
 describe("YoriCard", () => {

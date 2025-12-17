@@ -1,5 +1,5 @@
 import { act } from "react-dom/test-utils"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import CompanyReportPage from "@/app/(yorizo)/components/report/CompanyReportPage"
@@ -85,6 +85,15 @@ describe("CompanyReportPage", () => {
     expect(screen.queryByRole("button", { name: "レポートを更新" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "よろず支援拠点に相談する" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "もう一度タイプ診断する" })).toBeInTheDocument()
+
+    const balanceHeading = screen.getByRole("heading", { name: "経営バランス診断" })
+    const balanceSection = balanceHeading.closest("section")
+    expect(balanceSection).not.toBeNull()
+    if (balanceSection) {
+      expect(within(balanceSection).getByText("現状メモ")).toBeInTheDocument()
+      expect(within(balanceSection).queryByRole("button", { name: /もっと見る|閉じる/ })).not.toBeInTheDocument()
+    }
+    expect(screen.queryByRole("button", { name: /もっと見る/ })).not.toBeInTheDocument()
 
     expect(screen.getByText("最新決算期")).toBeInTheDocument()
     expect(screen.getByText("前期決算期")).toBeInTheDocument()
