@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
 import { ChevronDownIcon } from "lucide-react"
 import clsx from "clsx"
 import {
@@ -16,6 +15,8 @@ import {
 } from "recharts"
 
 import { ThinkingRow } from "@/components/ThinkingRow"
+import { YoriSectionCard } from "@/components/YoriSectionCard"
+import { YorizoAvatar } from "@/components/YorizoAvatar"
 import { ApiError, createHomework, getCompanyReport, listDocuments, type CompanyReport, type DocumentItem } from "@/lib/api"
 import { useCompanyProfile } from "@/lib/hooks/useCompanyProfile"
 import { PrimaryCtaButton } from "@/components/ui/PrimaryCtaButton"
@@ -61,7 +62,7 @@ type KpiPeriodDto = {
   kpis?: KpiValueDto[]
 }
 
-type CompanyReportWithKpi = CompanyReport & {
+type CompanyReportWithKpi = Omit<CompanyReport, "radar"> & {
   radar: {
     axes: string[]
     periods: KpiPeriodDto[]
@@ -121,29 +122,15 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
   },
 ]
 
-const KPI_RADAR_COLOR_CURRENT = "#f97316"
-const KPI_RADAR_COLOR_PREVIOUS = "#3b82f6"
-const KPI_RADAR_COLOR_PRE_PREVIOUS = "#6b7280"
-
-type ExpandableSectionBodyProps = {
-  children: ReactNode
-  initialLines?: 2 | 3 | 4 | 5
-}
+const KPI_RADAR_COLOR_CURRENT = "#2563EB"
+const KPI_RADAR_FILL_CURRENT = "#60A5FA"
+const KPI_RADAR_COLOR_PREVIOUS = "#9CA3AF"
 
 type AccordionSectionProps = {
   title: string
   summary: string
   children: ReactNode
   defaultOpen?: boolean
-}
-
-type KpiAccordionItemProps = {
-  kpiKey: string
-  title: string
-  summary: string
-  body: ReactNode
-  isOpen: boolean
-  onToggle: () => void
 }
 
 const summarizeOneLine = (text?: string | null): string => {
@@ -278,11 +265,9 @@ const formatKpiValue = (key: KpiKey, raw: number | null | undefined): string => 
 const KpiLegend = ({
   currentColor,
   previousColor,
-  prePreviousColor,
 }: {
   currentColor: string
   previousColor: string
-  prePreviousColor: string
 }) => (
   <div className="flex flex-wrap justify-center gap-4 text-[11px] md:text-xs text-slate-600">
     <div className="inline-flex items-center gap-1">
@@ -292,10 +277,6 @@ const KpiLegend = ({
     <div className="inline-flex items-center gap-1">
       <span className="inline-block h-[6px] w-4 rounded-full" style={{ backgroundColor: previousColor }} />
       <span>前期決算期</span>
-    </div>
-    <div className="inline-flex items-center gap-1">
-      <span className="inline-block h-[6px] w-4 rounded-full" style={{ backgroundColor: prePreviousColor }} />
-      <span>前々期決算期</span>
     </div>
   </div>
 )
@@ -323,38 +304,6 @@ function AccordionSection({ title, summary, children, defaultOpen = false }: Acc
   )
 }
 
-function ExpandableSectionBody({ children, initialLines = 3 }: ExpandableSectionBodyProps) {
-  const [open, setOpen] = useState(false)
-  const clampClass =
-    initialLines === 2
-      ? "line-clamp-2"
-      : initialLines === 4
-        ? "line-clamp-4"
-        : initialLines === 5
-          ? "line-clamp-5"
-          : "line-clamp-3"
-
-  return (
-    <div className="mt-2">
-      <div className="md:hidden">
-        <div className={open ? "text-sm leading-relaxed text-slate-700" : `text-sm leading-relaxed text-slate-700 ${clampClass}`}>
-          {children}
-        </div>
-        <div className="mt-2 border-t border-[color:var(--yori-line-strong-2)] pt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center text-xs font-semibold text-sky-600 hover:text-sky-700"
-          >
-            {open ? "閉じる ▲" : "もっと見る ▼"}
-          </button>
-        </div>
-      </div>
-      <div className="hidden md:block text-sm leading-relaxed text-slate-700">{children}</div>
-    </div>
-  )
-}
-
 function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"]["periods"]; axes: string[] }) {
   // periods expected with score (0-5); None treated as 0
   if (!periods?.length) {
@@ -369,31 +318,29 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
     label,
     latest: periods[0]?.scores?.[idx] ?? 0,
     previous: periods[1]?.scores?.[idx] ?? 0,
-    pre_previous: periods[2]?.scores?.[idx] ?? 0,
   }))
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="w-full max-w-[360px] h-[220px] md:h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ReRadarChart data={chartData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-            <defs>
-              <linearGradient id="kpiRadarCurrent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={KPI_RADAR_COLOR_CURRENT} stopOpacity={0.45} />
-                <stop offset="100%" stopColor={KPI_RADAR_COLOR_CURRENT} stopOpacity={0.15} />
-              </linearGradient>
-            </defs>
-            <PolarGrid gridType="polygon" radialLines={false} stroke="#E2ECF5" strokeDasharray="3 3" />
+          <ReRadarChart
+            data={chartData}
+            startAngle={90}
+            endAngle={-270}
+            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <PolarGrid gridType="polygon" radialLines={false} stroke="#E5E7EB" />
             <PolarAngleAxis dataKey="label" tick={{ fontSize: 10, fill: "#64748b" }} />
             <PolarRadiusAxis domain={[0, 5]} tick={false} axisLine={false} />
             <Radar
               name="最新決算期"
               dataKey="latest"
               stroke={KPI_RADAR_COLOR_CURRENT}
-              strokeWidth={2.2}
-              fill="url(#kpiRadarCurrent)"
-              fillOpacity={1}
-              dot={false}
+              strokeWidth={2.5}
+              fill={KPI_RADAR_FILL_CURRENT}
+              fillOpacity={0.2}
+              dot={{ r: 4, fill: KPI_RADAR_COLOR_CURRENT, stroke: "#fff", strokeWidth: 2 }}
             >
               <LabelList
                 dataKey="latest"
@@ -419,19 +366,10 @@ function RadarChart({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
               name="前期決算期"
               dataKey="previous"
               stroke={KPI_RADAR_COLOR_PREVIOUS}
-              strokeWidth={1.8}
-              fill="none"
-              fillOpacity={0}
-              dot={false}
-            />
-            <Radar
-              name="前々期決算期"
-              dataKey="pre_previous"
-              stroke={KPI_RADAR_COLOR_PRE_PREVIOUS}
-              fill="none"
-              fillOpacity={0}
               strokeWidth={1.5}
-              dot={false}
+              fill={KPI_RADAR_COLOR_PREVIOUS}
+              fillOpacity={0.1}
+              dot={{ r: 3, fill: "#fff", stroke: KPI_RADAR_COLOR_PREVIOUS, strokeWidth: 1.5 }}
             />
           </ReRadarChart>
         </ResponsiveContainer>
@@ -487,26 +425,11 @@ function ValueTable({ periods, axes }: { periods: CompanyReportWithKpi["radar"][
   )
 }
 
-const KpiAccordionItem = ({ title, summary, body, isOpen, onToggle }: KpiAccordionItemProps) => (
-  <div className="mb-2 last:mb-0">
-    <button
-      type="button"
-      onClick={onToggle}
-      className={clsx(
-        "flex w-full items-center justify-between rounded-2xl border border-[color:var(--yori-line-strong)] px-4 py-3 text-left transition-colors",
-        "bg-[#F3FAFF]",
-        isOpen && "bg-[#E4F3FF]",
-      )}
-    >
-      <div className="flex flex-col">
-        <span className="text-xs font-semibold text-slate-800">{title}</span>
-        <span className="mt-0.5 text-[11px] text-slate-500">{summary}</span>
-      </div>
-      <ChevronDownIcon className={clsx("h-4 w-4 text-slate-400 transition-transform", isOpen && "rotate-180")} />
-    </button>
-    {isOpen && <div className="px-4 pb-4 pt-2 text-[11px] leading-relaxed text-slate-700">{body}</div>}
-  </div>
-)
+const splitKpiLabel = (label: string): { title: string; sub?: string } => {
+  const match = label.match(/^(.+?)（(.+?)）$/)
+  if (!match) return { title: label }
+  return { title: match[1] ?? label, sub: match[2] }
+}
 
 export default function CompanyReportPage() {
   const router = useRouter()
@@ -514,7 +437,7 @@ export default function CompanyReportPage() {
   const [report, setReport] = useState<CompanyReportWithKpi | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [openKpiKey, setOpenKpiKey] = useState<KpiKey | null>("sales_sustainability")
+  const [isKpiGuideOpen, setIsKpiGuideOpen] = useState(false)
   const [latestDocuments, setLatestDocuments] = useState<DocumentItem[]>([])
   const [expandedTodoId, setExpandedTodoId] = useState<string | null>(null)
   const [addingTodoId, setAddingTodoId] = useState<string | null>(null)
@@ -555,9 +478,10 @@ export default function CompanyReportPage() {
   const rawAxes = report?.radar?.axes?.length ? report.radar.axes : KPI_AXES
   const axes = KPI_AXES.filter((label) => rawAxes.includes(label))
   const periods = useMemo(() => report?.radar?.periods ?? [], [report])
+  const radarPeriods = useMemo(() => periods.slice(0, 2), [periods])
   const isNoRadarData =
-    !periods.length ||
-    periods.every(
+    !radarPeriods.length ||
+    radarPeriods.every(
       (p) =>
         (!p.scores || p.scores.every((v) => v === null || v === undefined)) &&
         (!p.raw_values || p.raw_values.every((v) => v === null || v === undefined)),
@@ -580,7 +504,6 @@ export default function CompanyReportPage() {
   const yorizoActions =
     (thinkingQuestions && thinkingQuestions.length ? thinkingQuestions : []).map((q) => q.trim())
   const topTodos = (shortTermActions || []).map((title, idx) => ({ id: `todo-${idx}`, title }))
-  const companyId = report?.company?.id || COMPANY_ID
   const qualitative = report?.qualitative
 
   const overallDetail = report?.current_state || summaryComment
@@ -639,26 +562,13 @@ export default function CompanyReportPage() {
 
   return (
     <div className="yori-report flex flex-col gap-6">
-      <header className="yori-card-muted p-5 md:p-6 space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-[var(--yori-ink)]">
-            <ArrowLeft className="h-4 w-4" /> 戻る
-          </button>
-          <button
-            type="button"
-            onClick={fetchReport}
-            disabled={loading}
-            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold disabled:opacity-60"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            レポートを更新
-          </button>
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-[var(--yori-ink-strong)]">イマココレポート</h1>
-          <p className="text-sm text-[var(--yori-ink)]">チャット・ToDo・PDFをまとめて“いま”を俯瞰します。次の一歩もここから。</p>
-        </div>
-      </header>
+      <YoriSectionCard
+        tone="muted"
+        title="イマココレポート"
+        description="決算情報やチャットの内容などから、「いまの会社のバランス」と「気になるポイント」をまとめました。"
+        icon={<YorizoAvatar mood="basic" size="sm" />}
+        data-testid="report-hero"
+      />
 
       {error && <p className="text-sm text-rose-500">{error}</p>}
       {loading && (
@@ -669,74 +579,76 @@ export default function CompanyReportPage() {
 
       {report && (
         <>
-          <section className="mb-4 md:mb-6">
-            <div className="rounded-2xl bg-[#FFF9E6] px-4 py-3 md:px-6 md:py-4 flex items-start gap-3">
-              <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-yellow-500">📝</div>
-              <div className="space-y-1 text-sm md:text-base">
-                <p className="text-slate-700">
-                  直近の決算やお話の内容から、「いまの会社のバランス」と「気になるポイント」をわかりやすく整理しました。まずは全体のイメージをつかんでみてください。
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className="yori-card rounded-3xl p-3 md:p-4 mt-3">
+          <section className="yori-card rounded-3xl p-3 md:p-4">
             <h2 className="text-xs md:text-sm font-semibold text-slate-800 mb-2">経営バランス診断</h2>
             {isNoRadarData ? (
               <div className="rounded-xl border border-[color:var(--yori-line-strong)] bg-white p-4 text-sm text-[var(--yori-ink-soft)]">
                 決算書のデータが不足しているため、レーダーチャートを表示できません。
               </div>
             ) : (
-              <div className="mt-2 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
-                <div className="flex flex-col gap-3">
-                  <RadarChart periods={periods} axes={axes} />
-                  <KpiLegend
-                    currentColor={KPI_RADAR_COLOR_CURRENT}
-                    previousColor={KPI_RADAR_COLOR_PREVIOUS}
-                    prePreviousColor={KPI_RADAR_COLOR_PRE_PREVIOUS}
-                  />
-                  <div className="text-xs md:text-sm leading-relaxed text-slate-600">
-                    <ExpandableSectionBody initialLines={3}>
-                      <p>{summaryComment}</p>
-                    </ExpandableSectionBody>
-                  </div>
+                <div className="mt-2 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
+                  <div className="flex flex-col gap-3">
+                  <RadarChart periods={radarPeriods} axes={axes} />
+                  <KpiLegend currentColor={KPI_RADAR_COLOR_CURRENT} previousColor={KPI_RADAR_COLOR_PREVIOUS} />
+                  <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{summaryComment}</p>
                 </div>
                 <div className="space-y-3">
-                  <ValueTable periods={periods} axes={axes} />
-                  <div className="mt-4 rounded-2xl bg-white/70 border border-[color:var(--yori-line-strong-2)] p-3 md:p-4">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-slate-800">指標の見方</h3>
-                      <p className="text-[11px] text-slate-400">（タップすると詳しい説明が開きます）</p>
-                    </div>
-                    <div className="space-y-2">
-                      {KPI_DEFINITIONS.map((kpi) => (
-                        <KpiAccordionItem
-                          key={kpi.key}
-                          kpiKey={kpi.key}
-                          title={kpi.label}
-                          summary={kpi.short}
-                          body={
-                            <>
-                              <p className="mb-1">
-                                <span className="font-semibold">計算式：</span>
-                                {kpi.formula}
-                              </p>
-                              <p className="mb-1">
-                                <span className="font-semibold">見方：</span>
-                                {kpi.description}
-                              </p>
-                              {kpi.hint && (
-                                <p className="text-slate-500">
-                                  <span className="font-semibold">目安：</span>
-                                  {kpi.hint}
+                  <ValueTable periods={radarPeriods} axes={axes} />
+                  <div className="rounded-2xl border border-[color:var(--yori-line-strong-2)] bg-white/70">
+                    <button
+                      type="button"
+                      aria-expanded={isKpiGuideOpen}
+                      aria-controls="kpi-guide-content"
+                      onClick={() => setIsKpiGuideOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
+                    >
+                      <span className="text-sm font-semibold text-slate-800">指標の見方</span>
+                      <ChevronDownIcon
+                        className={clsx("h-4 w-4 text-slate-400 transition-transform", isKpiGuideOpen && "rotate-180")}
+                      />
+                    </button>
+                    <div
+                      id="kpi-guide-content"
+                      hidden={!isKpiGuideOpen}
+                      className="border-t border-[color:var(--yori-line-strong-2)] px-3 pb-3 pt-3"
+                    >
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {KPI_DEFINITIONS.map((kpi) => {
+                          const { title, sub } = splitKpiLabel(kpi.label)
+                          return (
+                            <div
+                              key={kpi.key}
+                              className="rounded-2xl border border-[color:var(--yori-line-strong)] bg-white px-3 py-3"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-sm md:text-base font-bold text-slate-800 leading-snug">{title}</h4>
+                                {sub && (
+                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] md:text-[11px] font-semibold text-slate-600">
+                                    {sub}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[11px] md:text-xs text-slate-500">{kpi.short}</p>
+                              <div className="mt-2 space-y-1 text-[11px] md:text-xs leading-relaxed text-slate-700">
+                                <p>
+                                  <span className="font-semibold text-slate-800">計算式：</span>
+                                  {kpi.formula}
                                 </p>
-                              )}
-                            </>
-                          }
-                          isOpen={openKpiKey === kpi.key}
-                          onToggle={() => setOpenKpiKey((prev) => (prev === kpi.key ? null : kpi.key))}
-                        />
-                      ))}
+                                <p>
+                                  <span className="font-semibold text-slate-800">見方：</span>
+                                  {kpi.description}
+                                </p>
+                                {kpi.hint && (
+                                  <p className="text-slate-600">
+                                    <span className="font-semibold text-slate-800">目安：</span>
+                                    {kpi.hint}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -948,16 +860,11 @@ export default function CompanyReportPage() {
             </AccordionSection>
           </section>
 
-          <div className="mt-6 flex flex-col gap-2 md:flex-row md:justify-center">
+          <div className="mt-6 w-full max-w-md mx-auto">
             <PrimaryCtaButton
               label="よろず支援拠点に相談する"
               onClick={() => router.push("/yorozu")}
-              className="w-full md:w-auto text-xs md:text-sm"
-            />
-            <PrimaryCtaButton
-              label="もう一度タイプ診断する"
-              onClick={() => router.push(`/companies/${companyId}/diagnosis`)}
-              className="w-full md:w-auto text-xs md:text-sm"
+              className="w-full text-xs md:text-sm"
             />
           </div>
         </>
@@ -969,14 +876,6 @@ export default function CompanyReportPage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
 
 
 

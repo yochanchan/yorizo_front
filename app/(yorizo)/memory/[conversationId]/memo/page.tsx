@@ -119,13 +119,6 @@ export default function ConsultationMemoPage() {
           />
           <YoriCard
             variant="link"
-            title="チャットに戻る（同一会話）"
-            description="同じ会話で続きを送信できます。"
-            href={conversationId ? `/chat?conversationId=${conversationId}` : "/chat"}
-            data-testid="memo-cta-back"
-          />
-          <YoriCard
-            variant="link"
             title="もう一度チャットで整理する"
             description="新しいチャットを最初から始めます。"
             href="/chat?reset=true"
