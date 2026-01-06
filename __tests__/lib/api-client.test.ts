@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, apiFetchResult } from "@/lib/api-client"
+import { ApiError, apiFetch, apiFetchResult, createApiClient } from "@/lib/api-client"
 
 function mockFetchOnce(data: any, ok = true, status = 200) {
   ; (global as any).fetch = jest.fn().mockResolvedValue({
@@ -13,15 +13,16 @@ describe("apiFetch", () => {
     ; (global as any).fetch = jest.fn()
   })
 
-  it("calls API_BASE_URL for relative paths and returns parsed JSON", async () => {
+  it("calls configured baseUrl for relative paths and returns parsed JSON", async () => {
     mockFetchOnce({ foo: "bar" })
 
-    const data = await apiFetch<{ foo: string }>("/test-endpoint")
+    const client = createApiClient({ baseUrl: "https://example.com" })
+    const data = await client.apiFetch<{ foo: string }>("/test-endpoint")
 
     expect(data).toEqual({ foo: "bar" })
     expect(global.fetch).toHaveBeenCalledTimes(1)
     const [url, init] = (global.fetch as jest.Mock).mock.calls[0]
-    expect(url).toBe("NEXT_PUBLIC_API_BASE_URL/test-endpoint")
+    expect(url).toBe("https://example.com/test-endpoint")
     expect(init).toEqual(
       expect.objectContaining({
         cache: "no-store",
