@@ -27,12 +27,17 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
   json?: unknown
   fallbackMessage?: string
   parseJson?: boolean
+  baseUrl?: string
 }
 
-function resolveApiUrl(path: string) {
+function normalizeBaseUrl(baseUrl: string) {
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl
+}
+
+function resolveApiUrl(path: string, baseUrl: string) {
   if (path.startsWith("http")) return path
-  const normalized = path.startsWith("/") ? path : `/${path}`
-  return `${API_BASE_URL}${normalized}`
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`
+  return `${normalizeBaseUrl(baseUrl)}${normalizedPath}`
 }
 
 async function parseJsonSafe(response: Response) {
@@ -44,7 +49,7 @@ async function parseJsonSafe(response: Response) {
 }
 
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { json, fallbackMessage, parseJson = true, body: rawBody, ...init } = options
+  const { json, fallbackMessage, parseJson = true, body: rawBody, baseUrl, ...init } = options
   const headers = new Headers(init.headers)
   let body = rawBody as BodyInit | undefined
 
@@ -54,7 +59,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   }
 
   try {
-    const response = await fetch(resolveApiUrl(path), {
+    const response = await fetch(resolveApiUrl(path, baseUrl ?? API_BASE_URL), {
       ...init,
       headers,
       body,
@@ -84,5 +89,12 @@ export async function apiFetchResult<T>(path: string, options: ApiRequestOptions
     const apiError =
       error instanceof ApiError ? error : new ApiError(options.fallbackMessage ?? DEFAULT_API_ERROR_MESSAGE)
     return { ok: false, error: apiError }
+  }
+}
+
+export function createApiClient({ baseUrl }: { baseUrl: string }) {
+  return {
+    apiFetch: <T,>(path: string, options: ApiRequestOptions = {}) => apiFetch<T>(path, { ...options, baseUrl }),
+    apiFetchResult: <T,>(path: string, options: ApiRequestOptions = {}) => apiFetchResult<T>(path, { ...options, baseUrl }),
   }
 }
