@@ -1,7 +1,7 @@
 import { API_BASE_URL } from "./config"
 
 export const DEFAULT_API_ERROR_MESSAGE = "通信に失敗しました。時間をおいて再度お試しください。"
-export const LLM_FALLBACK_MESSAGE = "Yorizo が考えるのに失敗しました……管理者にお問い合わせください。"
+export const LLM_FALLBACK_MESSAGE = "Yorizo が考えるのに失敗しました。管理者にお問い合わせください。"
 
 export class ApiError extends Error {
   status?: number
