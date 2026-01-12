@@ -80,6 +80,19 @@ const FALLBACK_ASSISTANT: ChatMessage = {
   done: false,
 }
 
+function shouldShowFallbackBubble(error: unknown) {
+  if (error instanceof ApiError) {
+    return error.status === undefined || error.status >= 500
+  }
+  return true
+}
+
+function isFallbackAssistantMessage(message: ChatMessage) {
+  if (message.role !== "assistant") return false
+  if ((message.options?.length ?? 0) > 0) return false
+  return message.content.trim() === LLM_FALLBACK_MESSAGE
+}
+
 function clampStep(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return null
   return Math.min(DEFAULT_TOTAL_STEPS, Math.max(0, value))
@@ -339,8 +352,18 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
   }, [initialConversationId, reset])
 
   const lastAssistant = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant"), [messages])
+  const lastAssistantWithOptions = useMemo(
+    () => [...messages].reverse().find((m) => m.role === "assistant" && (m.options?.length ?? 0) > 0),
+    [messages],
+  )
   const hasUserAnswer = useMemo(() => messages.some((m) => m.role === "user"), [messages])
-  const quickOptions = lastAssistant?.options ?? []
+  const quickOptions = useMemo(() => {
+    if (!lastAssistant) return []
+    const latestOptions = lastAssistant.options ?? []
+    if (latestOptions.length > 0) return latestOptions
+    if (!isFallbackAssistantMessage(lastAssistant)) return []
+    return lastAssistantWithOptions?.options ?? []
+  }, [lastAssistant, lastAssistantWithOptions])
   const voiceBusy = voiceStatus !== "idle"
   const canSend = input.trim().length > 0 && !loading && !voiceBusy
   const canOpenMemo = Boolean(conversationId) && !(loading || voiceBusy)
@@ -413,8 +436,20 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
       if (topic) params.set("topic", topic)
       router.replace(`/chat?${params.toString()}`, { scroll: false })
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : LLM_FALLBACK_MESSAGE
-      setError(message)
+      if (shouldShowFallbackBubble(err)) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-fallback-${crypto.randomUUID()}`,
+            role: "assistant",
+            content: LLM_FALLBACK_MESSAGE,
+            options: [],
+          },
+        ])
+      } else {
+        const message = err instanceof ApiError ? err.message : LLM_FALLBACK_MESSAGE
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -561,8 +596,12 @@ export default function ChatClient({ topic, initialConversationId, reset }: Chat
                 />
               </span>
             </div>
+           )}
+          {error && (
+            <p className="text-xs text-rose-600" data-testid="chat-error">
+              {error}
+            </p>
           )}
-          {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
       )}
 

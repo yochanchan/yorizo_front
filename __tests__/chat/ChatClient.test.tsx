@@ -343,7 +343,17 @@ describe("ChatClient", () => {
   })
 
   it("shows fallback message when the chat API fails", async () => {
-    mockedGuidedChatTurn.mockRejectedValue(new ApiError(LLM_FALLBACK_MESSAGE))
+    mockedGuidedChatTurn
+      .mockRejectedValueOnce(new ApiError(LLM_FALLBACK_MESSAGE))
+      .mockResolvedValueOnce({
+        conversation_id: "recovered-1",
+        reply: "復帰しました",
+        question: "",
+        options: [],
+        allow_free_text: true,
+        step: 1,
+        done: false,
+      })
 
     const user = userEvent.setup()
     render(<ChatClient initialConversationId={null} />)
@@ -354,6 +364,16 @@ describe("ChatClient", () => {
     await waitFor(() => {
       expect(screen.getByText(LLM_FALLBACK_MESSAGE)).toBeInTheDocument()
     })
-    expect(screen.queryByRole("button", { name: /ToDo/ })).toBeNull()
+
+    expect(screen.queryByTestId("chat-error")).toBeNull()
+    expect(screen.getAllByTestId("chat-quick-option")[0]).toBeEnabled()
+
+    await user.type(screen.getByTestId("chat-input"), "もう一度")
+    expect(screen.getByTestId("chat-send")).toBeEnabled()
+    await user.click(screen.getByRole("button", { name: "送信" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("復帰しました")).toBeInTheDocument()
+    })
   })
 })
